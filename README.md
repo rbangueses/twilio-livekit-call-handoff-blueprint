@@ -313,40 +313,7 @@ That update interrupts the original call's current TwiML execution and moves the
 4. Trigger the LiveKit `transferToFlex` tool.
 5. Confirm a new Flex voice task appears with `reason=ai_escalation` and the handoff summary in task attributes.
 
-## 5. Troubleshooting Call Hangups
-
-If the caller hears ringing and then the call hangs up, check the SIP child leg in Twilio first:
-
-```bash
-twilio api:core:calls:list --limit 5 -p your-twilio-profile
-```
-
-If the inbound parent call is `completed` but the SIP child leg is `busy` or `no-answer`, the Twilio Function probably returned valid TwiML, but LiveKit did not answer the SIP leg. Check the LiveKit agent:
-
-```bash
-lk agent status --id your-livekit-agent-id --project your-livekit-project
-lk agent logs --id your-livekit-agent-id --project your-livekit-project
-```
-
-Then smoke-test the agent without placing a phone call:
-
-```bash
-lk dispatch create \
-  --new-room \
-  --agent-name inbound-agent-code \
-  --metadata '{"test":"dispatch-smoke"}' \
-  --project your-livekit-project
-```
-
-A healthy smoke test shows the worker registering and receiving the job request, and the room stays alive with the agent participant waiting for a caller. Clean up the temporary room after the test:
-
-```bash
-lk room delete room-name-from-dispatch --project your-livekit-project
-```
-
-For this repo, the Python agent uses `inference.TurnDetector()` from `livekit-agents` and the requirements file intentionally does not include the deprecated `turn-detector` extra. If logs mention `livekit.plugins.turn_detector` or `model_q8.onnx`, redeploy the agent from the current [agent/requirements.txt](agent/requirements.txt) and [agent/agent.py](agent/agent.py).
-
-## 6. Local Checks
+## 5. Local Checks
 
 The automated tests exercise the Twilio Function handlers directly:
 
