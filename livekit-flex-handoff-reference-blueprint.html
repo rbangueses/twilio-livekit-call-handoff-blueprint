@@ -770,44 +770,6 @@ const sipParams = new URLSearchParams({
         </div>
       </section>
 
-      <section class="section">
-        <div class="shell">
-          <p class="section-kicker">Troubleshooting</p>
-          <h2>Common failure points</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Symptom</th>
-                <th>Likely cause</th>
-                <th>Where to look</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Caller hears ringing, then disconnects</td>
-                <td>LiveKit did not answer the SIP leg or agent dispatch failed</td>
-                <td><code>lk agent logs</code>, Twilio call child leg status</td>
-              </tr>
-              <tr>
-                <td>Handoff disconnects instead of reaching Flex</td>
-                <td>Invalid Flex workflow SID or enqueue failure</td>
-                <td>Twilio Monitor warning <code>14220</code>, Function logs</td>
-              </tr>
-              <tr>
-                <td>Agent cannot transfer</td>
-                <td>Missing <code>parentCallSid</code> attribute or token mismatch</td>
-                <td>LiveKit SIP participant attributes, <code>/escalate</code> response</td>
-              </tr>
-              <tr>
-                <td>Agent greets as if it is the customer</td>
-                <td>LLM-generated welcome prompt drift</td>
-                <td>Use a deterministic <code>session.say(...)</code> greeting</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
       <section class="section alt">
         <div class="shell">
           <p class="section-kicker">Adaptation</p>
