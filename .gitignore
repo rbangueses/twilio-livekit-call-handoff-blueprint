@@ -1,0 +1,11 @@
+.env
+.env.local
+.env.production
+serverless/.twiliodeployinfo
+agent/livekit.toml
+node_modules/
+.DS_Store
+__pycache__/
+*.py[cod]
+livekit/*.json
+!livekit/*.example.json

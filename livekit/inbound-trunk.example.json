@@ -1,0 +1,10 @@
+{
+  "trunk": {
+    "name": "Twilio Programmable Voice to LiveKit",
+    "numbers": ["+15551234567"],
+    "headers_to_attributes": {
+      "X-Parent-CallSid": "parentCallSid",
+      "X-Handoff-Id": "handoffId"
+    }
+  }
+}

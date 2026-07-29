@@ -1,0 +1,14 @@
+{
+  "name": "livekit-flex-handoff-functions",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "deploy": "./scripts/deploy.sh",
+    "start": "twilio serverless:start --env .env",
+    "test": "node test/functions.test.cjs"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}

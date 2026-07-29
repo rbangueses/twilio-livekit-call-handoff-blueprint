@@ -1,0 +1,5 @@
+[project]
+  subdomain = "your-livekit-project-subdomain"
+
+[agent]
+  id = "your-livekit-agent-id"
