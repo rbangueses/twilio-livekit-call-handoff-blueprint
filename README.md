@@ -15,6 +15,17 @@ This blueprint uses two escalation patterns:
 
 Pattern A is the preferred path when you want Studio to remain the routing owner for the voice journey. Pattern B is the smaller direct path and is useful when you only need to enqueue the live call into Flex.
 
+The Pattern A call flow is:
+
+1. Caller dials your Twilio number.
+2. Twilio starts the Studio Flow.
+3. Studio enters a TwiML Redirect widget named `redirect_to_livekit`.
+4. The TwiML Redirect widget calls `/studio_voice`, which returns `<Dial><Sip>` to send the caller to LiveKit.
+5. The LiveKit agent calls `/studio_escalate` when it needs a human.
+6. `/studio_escalate` updates the original Twilio Call resource with `<Redirect>` back to the Studio Flow webhook using `FlowEvent=return`.
+7. Studio resumes on the TwiML Redirect widget's `return` transition.
+8. Studio uses Send to Flex to create the Flex voice task.
+
 The Pattern B call flow is:
 
 1. Caller dials your Twilio number.
@@ -86,13 +97,127 @@ The Studio version should use separate Function names so the two paths stay easy
 - `studio_voice.js`: called by the Studio TwiML Redirect widget to dial LiveKit.
 - `studio_escalate.js`: called by the LiveKit agent tool to return the parent call to the active Studio Flow execution.
 
-## 3. Pattern B Setup: Direct Enqueue to Flex
+## 3. Pattern A Setup: Studio Return to Flex
+
+Pattern A keeps Studio in control of the inbound voice journey. Studio sends the caller to LiveKit only for the AI agent portion, then resumes the same Studio execution when the LiveKit agent escalates.
 
 ### 3.1 Deploy the Twilio Functions
 
+Pattern A uses two Function endpoints:
+
+```text
+https://your-functions-service-1234.twil.io/studio_voice
+https://your-functions-service-1234.twil.io/studio_escalate
+```
+
+The expected Function responsibilities are:
+
+- `/studio_voice`: returns `<Dial><Sip>` to LiveKit and passes the original call SID as `X-Parent-CallSid`.
+- `/studio_escalate`: receives the LiveKit handoff payload, updates `parentCallSid`, and returns the active call to Studio with `<Redirect>`.
+
+The call update in `/studio_escalate` should point the parent call back to the Studio Flow webhook with `FlowEvent=return`:
+
+```xml
+<Response>
+  <Redirect method="POST">
+    https://webhooks.twilio.com/v1/Accounts/AC.../Flows/FW...?FlowEvent=return&amp;route=flex&amp;parentCallSid=CA...&amp;handoffId=CA...&amp;intent=account_access&amp;summary=...
+  </Redirect>
+</Response>
+```
+
+The current repo has the Pattern B Functions implemented. The Pattern A Function files should be added as:
+
+```text
+serverless/functions/studio_voice.js
+serverless/functions/studio_escalate.js
+```
+
+Add the Studio Flow webhook URL to `serverless/.env`:
+
+```text
+STUDIO_FLOW_WEBHOOK_URL=https://webhooks.twilio.com/v1/Accounts/ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/Flows/FWxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+### 3.2 Create or Import the Studio Flow
+
+This repo includes a share-safe Studio Flow template at [studio/livekit-flex-handoff-flow.example.json](studio/livekit-flex-handoff-flow.example.json).
+
+The sample flow has this shape:
+
+```text
+Trigger: Incoming Call
+  -> TwiML Redirect: redirect_to_livekit
+      return -> Send to Flex: send_to_flex_1
+      timeout -> no transition by default
+      fail -> no transition by default
+```
+
+Before using the sample, replace these placeholders:
+
+- `https://your-functions-service-1234.twil.io/studio_voice`: your deployed `/studio_voice` Function URL.
+- `WWxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`: your Flex TaskRouter Workflow SID.
+- `TCxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`: your Flex voice Task Channel SID.
+
+The Send to Flex widget uses task attributes returned from the TwiML Redirect widget:
+
+```json
+{
+  "type": "inbound",
+  "name": "{{trigger.call.From}}",
+  "from": "{{trigger.call.From}}",
+  "customerAddress": "{{trigger.call.From}}",
+  "customerName": "{{trigger.call.From}}",
+  "channelType": "voice",
+  "direction": "{{trigger.call.Direction}}",
+  "reason": "ai_escalation",
+  "intent": "{{widgets.redirect_to_livekit.intent}}",
+  "summary": "{{widgets.redirect_to_livekit.summary}}",
+  "description": "{{widgets.redirect_to_livekit.description}}",
+  "parentCallSid": "{{widgets.redirect_to_livekit.parentCallSid}}",
+  "handoffId": "{{widgets.redirect_to_livekit.handoffId}}"
+}
+```
+
+Keep `summary` and `description` short. The Send to Flex widget stores these as TaskRouter task attributes, and Studio task attributes have a limited size.
+
+### 3.3 Configure the Twilio Number Webhook
+
+For Pattern A, configure the phone number's incoming voice webhook to the Studio Flow webhook URL, not directly to a Twilio Function:
+
+```text
+POST https://webhooks.twilio.com/v1/Accounts/ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/Flows/FWxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+### 3.4 Configure the LiveKit Agent Tool
+
+Use the same LiveKit tool pattern as Pattern B, but point the handoff service call at `/studio_escalate` instead of `/escalate`.
+
+```ts
+await fetch(`${HANDOFF_SERVICE_URL}/studio_escalate`, {
+  method: "POST",
+  headers: {
+    authorization: `Bearer ${HANDOFF_TOKEN}`,
+    "content-type": "application/json",
+  },
+  body: JSON.stringify({
+    parentCallSid,
+    handoffId,
+    intent,
+    summary,
+    description,
+  }),
+});
+```
+
+The LiveKit agent still needs `parentCallSid` from the SIP participant attributes. Pattern A changes the Twilio routing target, not the way LiveKit identifies the original caller leg.
+
+## 4. Pattern B Setup: Direct Enqueue to Flex
+
+### 4.1 Deploy the Twilio Functions
+
 Choose one of these routes. Both produce the same two public Function URLs: `/voice` and `/escalate`.
 
-#### 3.1.1 CLI Deployment
+#### 4.1.1 CLI Deployment
 
 Use this route if you want the repo to create and deploy the required Twilio Functions.
 
@@ -132,7 +257,7 @@ If `TWILIO_PROFILE` is set, the deploy script passes `-p <profile>` to the Twili
 
 The deploy script validates that `FLEX_WORKFLOW_SID` looks like a `WW...` Workflow SID.
 
-#### 3.1.2 Manual Console Deployment
+#### 4.1.2 Manual Console Deployment
 
 Use this route if you prefer creating the Function Service and Functions in Twilio Console.
 
@@ -147,7 +272,7 @@ https://your-functions-service-1234.twil.io/voice
 https://your-functions-service-1234.twil.io/escalate
 ```
 
-### 3.2 Create the LiveKit SIP Trunk
+### 4.2 Create the LiveKit SIP Trunk
 
 Create your local LiveKit SIP config from the example, then replace `+15551234567` with your Twilio number:
 
@@ -187,7 +312,7 @@ The inbound trunk maps custom SIP headers into LiveKit participant attributes:
 - `X-Parent-CallSid` -> `parentCallSid`
 - `X-Handoff-Id` -> `handoffId`
 
-### 3.3 Configure the Twilio Number Webhook
+### 4.3 Configure the Twilio Number Webhook
 
 In Twilio Console, configure the phone number's incoming voice webhook:
 
@@ -207,7 +332,7 @@ The `/voice` Function returns TwiML like:
 </Response>
 ```
 
-### 3.4 Add the LiveKit Agent Tool
+### 4.4 Add the LiveKit Agent Tool
 
 The LiveKit agent only has access to the Flex escalation tool if the tool is implemented in the agent source code. This is not configured in the LiveKit SIP trunk or Twilio Function.
 
@@ -282,7 +407,7 @@ The caller is the person experiencing the account access issue. You are the supp
 After the caller says it still is not working, says they want a person, or sounds blocked, briefly say that you are connecting them to a support specialist. Then call transfer_to_flex with intent account_access and a concise summary of what the caller tried, what failed, and what they need next.
 ```
 
-## 4. How Pattern B Targets the Right Call
+## 5. How the Patterns Target the Right Call
 
 The key is that the LiveKit agent must escalate the **original inbound caller leg**, not just any SIP leg it can see.
 
@@ -308,7 +433,7 @@ Twilio then dials LiveKit with:
 
 LiveKit receives the SIP call and maps `X-Parent-CallSid` to the SIP participant attribute `parentCallSid`. The LiveKit agent tool reads that attribute and sends it to `/escalate`.
 
-The `/escalate` Function then updates that exact parent Call resource:
+In Pattern B, the `/escalate` Function then updates that exact parent Call resource:
 
 ```js
 await context.getTwilioClient().calls(parentCallSid).update({
@@ -328,7 +453,30 @@ The replacement TwiML is:
 
 That update interrupts the original call's current TwiML execution and moves the caller into the Flex/TaskRouter workflow. This is why we pass the parent CallSid explicitly instead of relying on a SIP-leg CallSid exposed inside LiveKit.
 
-## 5. Test End to End
+In Pattern A, `/studio_escalate` updates the same parent Call resource, but it returns the call to Studio instead of enqueueing directly:
+
+```xml
+<Response>
+  <Redirect method="POST">
+    https://webhooks.twilio.com/v1/Accounts/AC.../Flows/FW...?FlowEvent=return&amp;route=flex&amp;summary=...
+  </Redirect>
+</Response>
+```
+
+That `FlowEvent=return` resumes the Studio TwiML Redirect widget's `return` transition, so Studio can run Send to Flex with the handoff attributes returned from LiveKit.
+
+## 6. Test End to End
+
+For Pattern A:
+
+1. Call the Twilio number that is configured to start the Studio Flow.
+2. Confirm Studio enters the `redirect_to_livekit` TwiML Redirect widget.
+3. Confirm the call lands in a LiveKit room with `parentCallSid` and `handoffId` participant attributes.
+4. Trigger the LiveKit `transferToFlex` tool.
+5. Confirm Studio resumes through the TwiML Redirect widget's `return` transition.
+6. Confirm Send to Flex creates a voice task with `reason=ai_escalation` and the handoff summary in task attributes.
+
+For Pattern B:
 
 1. Call the Twilio number.
 2. Confirm the call lands in a LiveKit room with the `inbound-agent-code`.
@@ -336,7 +484,7 @@ That update interrupts the original call's current TwiML execution and moves the
 4. Trigger the LiveKit `transferToFlex` tool.
 5. Confirm a new Flex voice task appears with `reason=ai_escalation` and the handoff summary in task attributes.
 
-## 6. Display Task Attributes in Flex
+## 7. Display Task Attributes in Flex
 
 The escalation Function passes handoff context into Flex as TaskRouter task attributes. For example:
 
@@ -362,7 +510,7 @@ const manager = Twilio.Flex.Manager.getInstance();
 }));
 ```
 
-## 7. Local Checks
+## 8. Local Checks
 
 The automated tests exercise the Twilio Function handlers directly:
 

@@ -1,0 +1,88 @@
+{
+  "initial_state": "Trigger",
+  "flags": {
+    "allow_concurrent_calls": true
+  },
+  "description": "LiveKit AI handoff to Flex through Studio",
+  "states": [
+    {
+      "name": "Trigger",
+      "type": "trigger",
+      "transitions": [
+        {
+          "event": "incomingMessage"
+        },
+        {
+          "next": "redirect_to_livekit",
+          "event": "incomingCall"
+        },
+        {
+          "event": "incomingConversationMessage"
+        },
+        {
+          "event": "incomingRequest"
+        },
+        {
+          "event": "incomingParent"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    },
+    {
+      "name": "redirect_to_livekit",
+      "type": "add-twiml-redirect",
+      "transitions": [
+        {
+          "next": "send_to_flex_1",
+          "event": "return"
+        },
+        {
+          "event": "timeout"
+        },
+        {
+          "event": "fail"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 254,
+          "y": 271
+        },
+        "method": "POST",
+        "url": "https://your-functions-service-1234.twil.io/studio_voice",
+        "timeout": "14400"
+      }
+    },
+    {
+      "name": "send_to_flex_1",
+      "type": "send-to-flex",
+      "transitions": [
+        {
+          "event": "callComplete"
+        },
+        {
+          "event": "failedToEnqueue"
+        },
+        {
+          "event": "callFailure"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 242,
+          "y": 575
+        },
+        "workflow": "WWxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "channel": "TCxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "attributes": "{\n  \"type\": \"inbound\",\n  \"name\": \"{{trigger.call.From}}\",\n  \"from\": \"{{trigger.call.From}}\",\n  \"customerAddress\": \"{{trigger.call.From}}\",\n  \"customerName\": \"{{trigger.call.From}}\",\n  \"channelType\": \"voice\",\n  \"direction\": \"{{trigger.call.Direction}}\",\n  \"reason\": \"ai_escalation\",\n  \"intent\": \"{{widgets.redirect_to_livekit.intent}}\",\n  \"summary\": \"{{widgets.redirect_to_livekit.summary}}\",\n  \"description\": \"{{widgets.redirect_to_livekit.description}}\",\n  \"parentCallSid\": \"{{widgets.redirect_to_livekit.parentCallSid}}\",\n  \"handoffId\": \"{{widgets.redirect_to_livekit.handoffId}}\"\n}",
+        "priority": "0",
+        "timeout": "3600"
+      }
+    }
+  ]
+}
