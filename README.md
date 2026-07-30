@@ -313,7 +313,36 @@ That update interrupts the original call's current TwiML execution and moves the
 4. Trigger the LiveKit `transferToFlex` tool.
 5. Confirm a new Flex voice task appears with `reason=ai_escalation` and the handoff summary in task attributes.
 
-## 5. Local Checks
+## 5. Display Task Attributes in Flex
+
+The escalation Function passes handoff context into Flex as TaskRouter task attributes. At minimum, the Flex task should include fields such as:
+
+- `reason=ai_escalation`
+- `intent=account_access`
+- `summary` and `description`
+- `parentCallSid`
+- `handoffId`
+- caller metadata such as `from` and `channelType`
+
+Flex does not expose all task attributes in the default task canvas. For demos or debugging, add a small Flex plugin that renders the active task attributes in a dedicated tab.
+
+![Flex task attributes sample](assets/flex-task-attributes-sample.svg)
+
+For a sample implementation, see [rbangueses/TaskAttributesViewer](https://github.com/rbangueses/TaskAttributesViewer). That plugin adds an **Attributes** tab to Flex and displays the active task attributes as searchable key/value rows, which makes it easy to verify the LiveKit handoff summary and parent call metadata.
+
+You can also inspect active task attributes from the Flex browser console:
+
+```js
+const manager = Twilio.Flex.Manager.getInstance();
+
+[...manager.store.getState().flex.worker.tasks.values()].map((task) => ({
+  taskSid: task.taskSid || task.sid,
+  status: task.status,
+  attributes: task.attributes,
+}));
+```
+
+## 6. Local Checks
 
 The automated tests exercise the Twilio Function handlers directly:
 
