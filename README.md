@@ -315,14 +315,11 @@ That update interrupts the original call's current TwiML execution and moves the
 
 ## 5. Display Task Attributes in Flex
 
-The escalation Function passes handoff context into Flex as TaskRouter task attributes. At minimum, the Flex task should include fields such as:
+The escalation Function passes handoff context into Flex as TaskRouter task attributes. For example:
 
 - `reason=ai_escalation`
 - `intent=account_access`
-- `summary` and `description`
-- `parentCallSid`
-- `handoffId`
-- caller metadata such as `from` and `channelType`
+- `summary`
 
 Flex does not expose all task attributes in the default task canvas. For demos or debugging, add a small Flex plugin that renders the active task attributes in a dedicated tab.
 
