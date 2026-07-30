@@ -48,8 +48,10 @@ def post_flex_escalation(
     handoff_service_url: str,
     handoff_token: str,
     payload: Mapping[str, str],
+    *,
+    path: str = "/escalate",
 ) -> dict:
-    endpoint = f"{handoff_service_url.rstrip('/')}/escalate"
+    endpoint = f"{handoff_service_url.rstrip('/')}/{path.lstrip('/')}"
     request = urllib.request.Request(
         endpoint,
         data=json.dumps(payload).encode("utf-8"),

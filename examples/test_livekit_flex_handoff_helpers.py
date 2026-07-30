@@ -1,5 +1,6 @@
 import importlib.util
 from pathlib import Path
+from unittest import mock
 import unittest
 
 
@@ -73,6 +74,45 @@ class LiveKitFlexHandoffHelpersTest(unittest.TestCase):
                     )
 
                 self.assertIn("parentCallSid", str(error.exception))
+
+    def test_posts_escalation_to_custom_handoff_path(self):
+        for module_path in MODULE_PATHS:
+            with self.subTest(module_path=module_path):
+                helpers = load_module(module_path)
+                requests = []
+
+                class FakeUrlopen:
+                    def __enter__(self):
+                        return self
+
+                    def __exit__(self, exc_type, exc, tb):
+                        return False
+
+                    def read(self):
+                        return b'{"ok": true}'
+
+                def capture_request(request, timeout):
+                    requests.append((request, timeout))
+                    return FakeUrlopen()
+
+                with mock.patch.object(
+                    helpers.urllib.request,
+                    "urlopen",
+                    side_effect=capture_request,
+                ):
+                    result = helpers.post_flex_escalation(
+                        "https://handoff.example.twil.io/",
+                        "token-123",
+                        {"parentCallSid": "CAparent"},
+                        path="/studio_escalate",
+                    )
+
+                self.assertEqual(result, {"ok": True})
+                self.assertEqual(
+                    requests[0][0].full_url,
+                    "https://handoff.example.twil.io/studio_escalate",
+                )
+                self.assertEqual(requests[0][1], 10)
 
 
 if __name__ == "__main__":
