@@ -69,6 +69,28 @@ test("/voice returns a voice error when LiveKit SIP config is incomplete", async
   assert.doesNotMatch(twiml, /<Sip/);
 });
 
+test("/studio_voice returns Dial Sip TwiML with parent call headers", async () => {
+  installTwilioStub();
+  const { handler } = require("../functions/studio_voice");
+
+  const result = await invoke(handler, {
+    context: {
+      LIVEKIT_PHONE_NUMBER: "+14155550123",
+      LIVEKIT_SIP_HOST: "abc123.sip.livekit.cloud",
+      LIVEKIT_SIP_USERNAME: "lk-user",
+      LIVEKIT_SIP_PASSWORD: "lk-pass",
+    },
+    event: {
+      CallSid: "CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+  });
+
+  assert.equal(
+    result.toString(),
+    '<Response><Dial><Sip username="lk-user" password="lk-pass">sip:+14155550123@abc123.sip.livekit.cloud;transport=tcp?X-Parent-CallSid=CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&amp;X-Handoff-Id=CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</Sip></Dial></Response>',
+  );
+});
+
 test("/escalate rejects requests without the bearer token", async () => {
   installTwilioStub();
   const { handler } = require("../functions/escalate");
@@ -202,6 +224,79 @@ test("/escalate rejects a Workspace SID before updating the live call", async ()
   assert.equal(updateCalled, false);
 });
 
+test("/studio_escalate updates the parent call with Studio return Redirect TwiML", async () => {
+  installTwilioStub();
+  const { handler } = require("../functions/studio_escalate");
+  const updates = [];
+
+  const result = await invoke(handler, {
+    context: {
+      HANDOFF_TOKEN: "expected-token",
+      STUDIO_FLOW_WEBHOOK_URL:
+        "https://webhooks.twilio.com/v1/Accounts/ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/Flows/FWaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      getTwilioClient: () => ({
+        calls: (callSid) => ({
+          update: async (payload) => {
+            updates.push({ callSid, payload });
+            return { sid: callSid };
+          },
+        }),
+      }),
+    },
+    event: {
+      request: { headers: { authorization: "Bearer expected-token" } },
+      parentCallSid: "CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      handoffId: "handoff-123",
+      intent: "account_access",
+      summary: "Caller tried a sign-in code and still needs help.",
+      description: "Caller cannot access their account.",
+    },
+  });
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(updates[0].callSid, "CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+  assert.match(
+    updates[0].payload.twiml,
+    /^<Response><Redirect method="POST">https:\/\/webhooks\.twilio\.com\/v1\/Accounts\/ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\/Flows\/FWaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\?/,
+  );
+  assert.match(updates[0].payload.twiml, /FlowEvent=return/);
+  assert.match(updates[0].payload.twiml, /route=flex/);
+  assert.match(updates[0].payload.twiml, /parentCallSid=CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/);
+  assert.match(updates[0].payload.twiml, /intent=account_access/);
+  assert.match(updates[0].payload.twiml, /summary=Caller\+tried\+a\+sign-in\+code\+and\+still\+needs\+help\./);
+  assert.equal(result.body.ok, true);
+  assert.equal(result.body.parentCallSid, "CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+});
+
+test("/studio_escalate rejects requests without a Studio Flow webhook URL", async () => {
+  installTwilioStub();
+  const { handler } = require("../functions/studio_escalate");
+  let updateCalled = false;
+
+  const result = await invoke(handler, {
+    context: {
+      HANDOFF_TOKEN: "expected-token",
+      getTwilioClient: () => ({
+        calls: () => ({
+          update: async () => {
+            updateCalled = true;
+            return {};
+          },
+        }),
+      }),
+    },
+    event: {
+      request: { headers: { authorization: "Bearer expected-token" } },
+      parentCallSid: "CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      summary: "Caller asked for a person.",
+    },
+  });
+
+  assert.equal(result.statusCode, 500);
+  assert.deepEqual(result.body, { error: "missing_studio_flow_webhook_url" });
+  assert.equal(updateCalled, false);
+});
+
 function test(name, fn) {
   tests.push({ name, fn });
 }
@@ -295,6 +390,11 @@ class FakeVoiceResponse {
     return enqueue;
   }
 
+  redirect(attrs, url) {
+    this.children.push(new FakeRedirect(attrs, url));
+    return this;
+  }
+
   toString() {
     return `<Response>${this.children.map((child) => child.toString()).join("")}</Response>`;
   }
@@ -333,6 +433,21 @@ class FakeEnqueue {
       .map(([name, value]) => `${name}="${escapeXml(value)}"`)
       .join(" ");
     return `<Enqueue ${attrs}><Task>${escapeXml(this.taskPayload)}</Task></Enqueue>`;
+  }
+}
+
+class FakeRedirect {
+  constructor(attrs, url) {
+    this.attrs = attrs;
+    this.url = url;
+  }
+
+  toString() {
+    const attrs = Object.entries(this.attrs)
+      .filter(([, value]) => value)
+      .map(([name, value]) => `${name}="${escapeXml(value)}"`)
+      .join(" ");
+    return `<Redirect ${attrs}>${escapeXml(this.url)}</Redirect>`;
   }
 }
 

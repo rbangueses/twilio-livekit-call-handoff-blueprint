@@ -125,7 +125,7 @@ The call update in `/studio_escalate` should point the parent call back to the S
 </Response>
 ```
 
-The current repo has the Pattern B Functions implemented. The Pattern A Function files should be added as:
+The repo includes both Pattern A Function files:
 
 ```text
 serverless/functions/studio_voice.js

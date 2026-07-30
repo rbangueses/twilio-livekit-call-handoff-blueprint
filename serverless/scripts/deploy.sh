@@ -62,6 +62,7 @@ deploy_args=(
   serverless:deploy
   --service-name "$service_name"
   --env .env
+  --override-existing-project
 )
 
 if [[ -n "$twilio_profile" ]]; then
