@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Twilio LiveKit Flex Handoff Reference Blueprint</title>
+    <title>Twilio LiveKit Call Handoff Reference Blueprint</title>
     <style>
       :root {
         --ink: #17202a;
@@ -211,6 +211,10 @@
         padding: 22px;
       }
 
+      .card.span-two {
+        grid-column: 1 / -1;
+      }
+
       .card h3 {
         margin: 0 0 10px;
         font-size: 1.08rem;
@@ -405,10 +409,10 @@
       <div class="shell hero-inner">
         <div>
           <div class="eyebrow">Reference Blueprint</div>
-          <h1>Twilio LiveKit Flex Handoff</h1>
+          <h1>Twilio LiveKit Call Handoff</h1>
           <p class="hero-copy">
-            A production-shaped pattern for giving a LiveKit voice agent a clean
-            escape hatch to a human agent in Twilio Flex, without losing the
+            A production-shaped pattern for giving a LiveKit voice agent a
+            clean escape hatch back to Twilio routing, without losing the live
             caller or the context gathered by the AI.
           </p>
           <div class="hero-actions">
@@ -420,11 +424,11 @@
 
         <div class="hero-diagram" aria-label="Architecture diagram">
           <div class="diagram-head">
-            <span><strong>Patterns:</strong> Studio return or direct Enqueue</span>
-            <span>Voice + LiveKit + Flex</span>
+            <span><strong>Patterns:</strong> Studio, Enqueue, or custom TwiML</span>
+            <span>Voice + LiveKit + routing</span>
           </div>
           <div class="diagram-wrap">
-            <svg viewBox="0 0 920 650" role="img" aria-label="LiveKit to Twilio Flex handoff architecture">
+            <svg viewBox="0 0 920 650" role="img" aria-label="LiveKit to Twilio call handoff architecture">
               <defs>
                 <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
                   <path d="M2,2 L10,6 L2,10 Z" fill="#5a6472" />
@@ -469,12 +473,12 @@
               <text x="367" y="358" text-anchor="middle" class="small">updates parent call</text>
 
               <rect x="255" y="510" width="225" height="105" rx="8" class="box-teal" />
-              <text x="367" y="542" text-anchor="middle" class="label">Route to Flex</text>
-              <text x="367" y="566" text-anchor="middle" class="small">Studio Send to Flex</text>
-              <text x="367" y="588" text-anchor="middle" class="small">or TaskRouter Enqueue</text>
+              <text x="367" y="542" text-anchor="middle" class="label">Route Caller</text>
+              <text x="367" y="566" text-anchor="middle" class="small">Send to Flex, Enqueue,</text>
+              <text x="367" y="588" text-anchor="middle" class="small">or custom TwiML</text>
 
               <rect x="590" y="510" width="245" height="105" rx="8" class="box-teal" />
-              <text x="712" y="548" text-anchor="middle" class="label">Flex Agent</text>
+              <text x="712" y="548" text-anchor="middle" class="label">Human Agent</text>
               <text x="712" y="574" text-anchor="middle" class="small">answers live caller</text>
               <text x="712" y="596" text-anchor="middle" class="small">with handoff context</text>
 
@@ -501,13 +505,14 @@
       <section class="section" id="overview">
         <div class="shell">
           <p class="section-kicker">What This Blueprint Solves</p>
-          <h2>AI containment with a safe human handoff</h2>
+          <h2>AI containment with a safe parent-call handoff</h2>
           <p class="section-lede">
             The integration lets a LiveKit voice agent handle the first part of
             an inbound support call. When the agent cannot resolve the issue,
-            it calls a tool that updates the original Twilio call. The caller
-            stays on the same live call while the human agent receives
-            structured handoff context.
+            it calls a tool that updates the original Twilio call. Flex is the
+            tested reference destination, but the same pattern can route the
+            live caller to another TaskRouter workflow, voice app, SIP endpoint,
+            conference, or dial target.
           </p>
 
           <div class="callout">
@@ -539,11 +544,12 @@
               </p>
             </div>
             <div class="card">
-              <span class="badge teal">Flex</span>
-              <h3>Receives context</h3>
+              <span class="badge teal">Pattern C</span>
+              <h3>Direct TwiML route</h3>
               <p>
-                TaskRouter receives a voice task containing the handoff summary,
-                intent, caller details, and parent call SID.
+                The same parent call update can dial another destination,
+                enter a conference, reach a SIP endpoint, or redirect to a
+                custom voice app.
               </p>
             </div>
           </div>
@@ -553,15 +559,15 @@
       <section class="section alt" id="flow">
         <div class="shell">
           <p class="section-kicker">Runtime Flow</p>
-          <h2>How the call moves from AI to human</h2>
+          <h2>How the call moves from AI back to routing</h2>
           <p class="section-lede">
             The key design choice is to update the original inbound Twilio call
             resource during escalation. The LiveKit SIP leg is only the media
             bridge to the AI agent; it is not the call leg that should be
-            enqueued into Flex.
+            routed to the next destination.
           </p>
 
-          <div class="grid two">
+          <div class="grid three">
             <div class="card">
               <span class="badge">Pattern A</span>
               <h3>Studio return to Flex</h3>
@@ -592,6 +598,20 @@
                 <code>/escalate</code>. That Function updates the parent call
                 with <code>&lt;Enqueue workflowSid="WW..."&gt;</code> and
                 embeds the handoff summary as TaskRouter attributes.
+              </p>
+            </div>
+            <div class="card">
+              <span class="badge teal">Pattern C</span>
+              <h3>Direct TwiML route</h3>
+              <p>
+                The LiveKit mechanics stay the same: the agent posts the
+                parent call SID and summary to Twilio when it escalates.
+              </p>
+              <p>
+                The handoff Function then updates the parent call with another
+                TwiML instruction, such as <code>&lt;Dial&gt;</code>,
+                <code>&lt;Conference&gt;</code>, <code>&lt;Sip&gt;</code>, or
+                <code>&lt;Redirect&gt;</code> to a custom voice app.
               </p>
             </div>
           </div>
@@ -627,7 +647,8 @@
                 </td>
                 <td>
                   Create the SIP dial leg to LiveKit, then either return the
-                  parent call to Studio or enqueue it directly into Flex.
+                  parent call to Studio, enqueue it into Flex, or adapt the
+                  update to another TwiML route.
                 </td>
               </tr>
               <tr>
@@ -643,7 +664,8 @@
                 <td><code>agent/agent.py</code><br /><code>agent/livekit_flex_handoff_helpers.py</code></td>
                 <td>
                   Implement the voice agent, expose <code>transfer_to_flex</code>,
-                  and post escalation payloads to Twilio.
+                  and post escalation payloads with the parent call SID to
+                  Twilio.
                 </td>
               </tr>
               <tr>
@@ -677,7 +699,7 @@
           </p>
 
           <div class="grid two">
-            <div class="card">
+            <div class="card span-two">
               <h3>Header passed to LiveKit</h3>
               <pre><code>const parentCallSid = event.CallSid;
 const sipParams = new URLSearchParams({
@@ -703,7 +725,9 @@ const sipParams = new URLSearchParams({
             <p>
               Avoid updating the SIP child leg exposed inside LiveKit. That leg
               represents the AI media bridge. The parent call is the live caller
-              that needs to be moved into the Flex queue.
+              that needs to be moved to the next route. Pattern C uses this
+              same update but swaps in another TwiML verb, such as
+              <code>&lt;Dial&gt;</code> or <code>&lt;Conference&gt;</code>.
             </p>
           </div>
         </div>
@@ -736,16 +760,16 @@ const sipParams = new URLSearchParams({
       <section class="section alt">
         <div class="shell">
           <p class="section-kicker">Setup Checklist</p>
-          <h2>Build it in five moves</h2>
+          <h2>Build it in six moves</h2>
           <div class="grid two">
             <div class="card">
               <h3>1. Deploy Twilio Functions</h3>
               <p>
                 Deploy <code>/studio_voice</code>,
                 <code>/studio_escalate</code>, <code>/voice</code>, and
-                <code>/escalate</code> with the Flex workflow SID, LiveKit SIP
-                host, SIP credentials, Studio Flow webhook URL, and shared
-                handoff token.
+                <code>/escalate</code> with the LiveKit SIP host, SIP
+                credentials, shared handoff token, and whichever routing
+                values your chosen pattern needs.
               </p>
             </div>
             <div class="card">
@@ -760,23 +784,34 @@ const sipParams = new URLSearchParams({
               <p>
                 For Pattern A, point the Twilio number to the Studio Flow
                 webhook. For Pattern B, point it directly at the public
-                <code>/voice</code> Function URL.
+                <code>/voice</code> Function URL. For Pattern C, start from
+                either route and change the handoff TwiML destination.
               </p>
             </div>
             <div class="card">
-              <h3>4. Configure Studio if using Pattern A</h3>
+              <h3>4. Configure the destination</h3>
               <p>
-                Import or create the Studio Flow with TwiML Redirect to
-                <code>/studio_voice</code>, then configure Send to Flex with
-                the Flex workflow and voice Channel.
+                For Pattern A, import or create the Studio Flow and configure
+                Send to Flex. For Pattern B, use a Flex Workflow SID. For
+                Pattern C, decide whether the parent call should dial,
+                conference, SIP, or redirect elsewhere.
               </p>
             </div>
             <div class="card">
               <h3>5. Add the LiveKit tool</h3>
               <p>
-                Add <code>transfer_to_flex</code> to the LiveKit agent. Use
-                <code>/studio_escalate</code> for Pattern A or
-                <code>/escalate</code> for Pattern B.
+                Add the handoff tool to the LiveKit agent. Use
+                <code>/studio_escalate</code> for Pattern A, or
+                <code>/escalate</code> for Pattern B and Pattern C style
+                adaptations.
+              </p>
+            </div>
+            <div class="card">
+              <h3>6. Test the parent call update</h3>
+              <p>
+                Confirm LiveKit receives <code>parentCallSid</code>, the tool
+                posts that value back to Twilio, and the original caller leg
+                follows the selected route with the expected handoff context.
               </p>
             </div>
           </div>
@@ -786,14 +821,15 @@ const sipParams = new URLSearchParams({
       <section class="section alt">
         <div class="shell">
           <p class="section-kicker">Adaptation</p>
-          <h2>Using the pattern without Flex</h2>
+          <h2>Pattern C: route without Flex</h2>
           <p class="section-lede">
-            Flex is the concrete target in this blueprint, but the core pattern
-            is broader. If your human-agent stack uses TaskRouter, enqueue the
-            parent call and pass context as task attributes. If it does not,
-            you can still route the live call with TwiML such as
-            <code>&lt;Dial&gt;</code>, but you will need a separate context
-            channel for the receiving desktop or agent system.
+            Flex is the concrete tested target in this blueprint, not a
+            requirement of the parent-call update pattern. If your agent stack
+            uses TaskRouter, enqueue the parent call and pass context as task
+            attributes. If it does not, route the live call with TwiML such as
+            <code>&lt;Dial&gt;</code>, <code>&lt;Conference&gt;</code>, or
+            <code>&lt;Redirect&gt;</code>, and provide the handoff summary to
+            the receiving system through a separate context channel.
           </p>
         </div>
       </section>
@@ -801,7 +837,7 @@ const sipParams = new URLSearchParams({
 
     <footer class="footer">
       <div class="shell">
-        Twilio LiveKit Flex Handoff Reference Blueprint. See the repository
+        Twilio LiveKit Call Handoff Reference Blueprint. See the repository
         README for commands, templates, and local test instructions.
       </div>
     </footer>

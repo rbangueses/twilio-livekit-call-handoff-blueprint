@@ -2,35 +2,42 @@
 
 Conversational AI agents need a clean path to escalate to a human when they cannot resolve an interaction on their own.
 
-This repo is a working blueprint for handing an active phone call from a LiveKit voice agent back to Twilio, then routing that caller to a human agent. The example assumes Twilio Flex is the agent desktop and embedded softphone, but the same pattern works with any agent experience built on Twilio Programmable Voice. TaskRouter is used to enqueue the voice task and carry handoff context into the human-agent workflow.
+This repo is a working blueprint for handing an active phone call from a LiveKit voice agent back to Twilio, then routing that caller to the next best destination. The tested examples route to Twilio Flex, but the core pattern is broader: pass the original parent call SID into LiveKit, let the LiveKit agent decide when to escalate, then update that original Twilio Call resource with the next TwiML instruction.
+
+Flex is the reference human-agent destination in this repo. The same parent-call update pattern can also route to another TaskRouter-powered agent desktop, a `<Dial>` destination, a conference, a SIP endpoint, or a custom Programmable Voice app. If the destination is not Flex or TaskRouter, you will need a separate way to pass the conversation summary and context to the receiving system.
 
 For a visual walkthrough, open [livekit-flex-handoff-reference-blueprint.html](livekit-flex-handoff-reference-blueprint.html).
 
 In this example the Twilio-side backend uses **Twilio Functions**.
 
-This blueprint includes two tested escalation patterns:
+This blueprint includes two tested Flex escalation patterns and one adaptation pattern:
 
 - **Pattern A: Studio return to Flex.** Studio owns the inbound call, uses a TwiML Redirect widget to send the caller to LiveKit, then resumes the Studio execution and uses Send to Flex when LiveKit escalates.
 - **Pattern B: Direct Enqueue to Flex.** Twilio sends the caller directly to LiveKit, then the LiveKit tool updates the parent call with `<Enqueue>` when it escalates.
+- **Pattern C: Direct TwiML route elsewhere.** Use the same parent call update, but return another TwiML instruction such as `<Dial>`, `<Conference>`, `<Sip>`, or `<Redirect>` to a custom voice app instead of enqueuing into Flex.
 
-Pattern A is the preferred path when you want Studio to remain the routing owner for the voice journey. Pattern B is the smaller direct path when you only need to enqueue the live call into Flex.
+Pattern A is the preferred path when you want Studio to remain the routing owner for the voice journey. Pattern B is the smaller direct path when you only need to enqueue the live call into Flex. Pattern C is useful when the AI handoff target is not Flex, but it is an adaptation of the same architecture rather than a separate tested path in this repo.
 
 The key handoff detail is the parent call SID. The Twilio Function that dials LiveKit passes the inbound caller's original Twilio `CallSid` to LiveKit as `parentCallSid` using the `X-Parent-CallSid` SIP header. When the agent escalates, the handoff Function updates that parent call, not the LiveKit SIP child leg.
-
-You can use the same general pattern without Flex if your human-agent stack also uses TaskRouter: enqueue the parent call and pass handoff context as task attributes. If you are not using TaskRouter, the routing step can still be done with TwiML such as `<Dial>`, but you will need a separate way to pass conversation context to the destination agent experience.
 
 ## 1. Prerequisites
 
 You need:
 
-- A Twilio account with Flex enabled.
+- A Twilio account.
 - A Twilio phone number for inbound calls.
-- The Flex TaskRouter Workflow SID that should receive escalated voice tasks. This must start with `WW`; do not use the Flex TaskRouter Workspace SID, which starts with `WS`.
-- For Pattern A, a Flex voice Channel selected in the Studio Send to Flex widget. If you are editing or importing the Studio Flow JSON directly, this is stored as a `TC...` Task Channel SID in the widget's `channel` property.
 - A LiveKit Cloud project.
 - Your LiveKit SIP host, for example `abcde.sip.livekit.cloud`.
 - The LiveKit CLI if you want to create the SIP trunk and dispatch rule from the terminal.
 - The Twilio CLI if you want to deploy the Functions from this repo.
+
+For the tested Flex paths, you also need:
+
+- Flex enabled in the Twilio account.
+- The Flex TaskRouter Workflow SID that should receive escalated voice tasks. This must start with `WW`; do not use the Flex TaskRouter Workspace SID, which starts with `WS`.
+- For Pattern A, a Flex voice Channel selected in the Studio Send to Flex widget. If you are editing or importing the Studio Flow JSON directly, this is stored as a `TC...` Task Channel SID in the widget's `channel` property.
+
+For a non-Flex adaptation, replace the Flex-specific values with the TwiML destination or voice app that should receive the caller after escalation.
 
 Install and authenticate the Twilio CLI:
 
@@ -68,6 +75,8 @@ Use **Pattern A** when the Twilio number already starts in Studio, or when you w
 
 Use **Pattern B** when you want the simplest working handoff: a Twilio Function dials LiveKit over SIP, and the LiveKit agent tool updates the parent call directly into Flex with `<Enqueue>`.
 
+Use **Pattern C** when you want the LiveKit agent to route the caller somewhere other than Flex. The LiveKit and parent call SID mechanics stay the same, but the handoff endpoint returns a different TwiML instruction.
+
 The repo includes both sets of Function files:
 
 - [serverless/functions/studio_voice.js](serverless/functions/studio_voice.js): Pattern A entrypoint called by the Studio TwiML Redirect widget.
@@ -75,7 +84,7 @@ The repo includes both sets of Function files:
 - [serverless/functions/voice.js](serverless/functions/voice.js): Pattern B entrypoint called directly by the Twilio number webhook.
 - [serverless/functions/escalate.js](serverless/functions/escalate.js): Pattern B handoff endpoint called by the LiveKit agent tool.
 
-A single Twilio phone number can be pointed at one voice webhook at a time. To test Pattern A, route the number to the Studio Flow webhook. To test Pattern B, route the same number directly to `/voice`.
+A single Twilio phone number can be pointed at one voice webhook at a time. To test Pattern A, route the number to the Studio Flow webhook. To test Pattern B, route the same number directly to `/voice`. For Pattern C, start from Pattern B and change the handoff TwiML generated by `/escalate` to the destination you want.
 
 ## 3. Shared Setup
 
@@ -103,6 +112,8 @@ HANDOFF_TOKEN=replace_with_a_long_random_token
 ```
 
 `STUDIO_FLOW_WEBHOOK_URL` is required for Pattern A. If you create the Studio Flow after the first Function deployment, add the Flow webhook URL to `serverless/.env` and deploy again.
+
+The bundled serverless project is wired for the tested Flex paths and validates the Flex workflow SID. For Pattern C, adapt the `/escalate` Function to emit your chosen TwiML route and adjust the required environment variables to match that destination.
 
 Deploy:
 
@@ -452,6 +463,16 @@ In Pattern B, `/escalate` updates that exact parent Call resource with Flex enqu
 
 That update interrupts the original call's current TwiML execution and moves the caller into the Flex/TaskRouter workflow. This is why we pass the parent CallSid explicitly instead of relying on a SIP-leg CallSid exposed inside LiveKit.
 
+In Pattern C, the same update can route the parent call somewhere else:
+
+```xml
+<Response>
+  <Dial>+15551234567</Dial>
+</Response>
+```
+
+That version keeps the live caller on the original Twilio call leg, but it does not automatically create a Flex task or TaskRouter attributes. Store the handoff summary somewhere the destination system can read, or include only safe, minimal routing context in the next TwiML request.
+
 ## 7. Test End to End
 
 For Pattern A:
@@ -471,6 +492,15 @@ For Pattern B:
 3. Confirm the call lands in a LiveKit room with `parentCallSid` and `handoffId` participant attributes.
 4. Trigger the LiveKit `transferToFlex` tool.
 5. Confirm a new Flex voice task appears with `reason=ai_escalation` and the handoff summary in task attributes.
+
+For Pattern C:
+
+1. Point the Twilio number to the `/voice` Function URL or to a Studio flow that reaches LiveKit.
+2. Call the Twilio number.
+3. Confirm the call lands in a LiveKit room with `parentCallSid` and `handoffId` participant attributes.
+4. Trigger the LiveKit handoff tool.
+5. Confirm the parent call follows your custom TwiML route, such as dialing another number, entering a conference, or redirecting to another voice app.
+6. Confirm the receiving system can access the handoff context through your chosen context channel.
 
 ## 8. Display Task Attributes in Flex
 
