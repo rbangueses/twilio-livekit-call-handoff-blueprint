@@ -6,10 +6,6 @@ This repo is a working blueprint for handing an active phone call from a LiveKit
 
 Flex is the reference human-agent destination in this repo. The same parent-call update pattern can also route to another TaskRouter-powered agent desktop, a `<Dial>` destination, a conference, a SIP endpoint, or a custom Programmable Voice app. If the destination is not Flex or TaskRouter, you will need a separate way to pass the conversation summary and context to the receiving system.
 
-For a visual walkthrough, open [index.html](index.html) locally or the published GitHub Pages site after deployment.
-
-In this example the Twilio-side backend uses **Twilio Functions**.
-
 This blueprint includes two tested routing patterns and one adaptation pattern:
 
 - **Pattern A: Using Studio.** Studio owns the inbound call, uses a TwiML Redirect widget to send the caller to LiveKit, then resumes the Studio execution and chooses the next route when LiveKit escalates.
