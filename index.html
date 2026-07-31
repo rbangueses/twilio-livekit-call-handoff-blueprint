@@ -229,6 +229,27 @@
         margin-top: 14px;
       }
 
+      .overview-patterns .card {
+        display: grid;
+        grid-template-rows: 24px auto 1fr;
+        align-content: start;
+        gap: 14px;
+      }
+
+      .overview-patterns .badge {
+        justify-self: start;
+        margin-bottom: 0;
+      }
+
+      .overview-patterns .card h3 {
+        margin: 0;
+      }
+
+      .overview-patterns .card p {
+        max-width: 31ch;
+        line-height: 1.55;
+      }
+
       .badge {
         display: inline-flex;
         align-items: center;
@@ -525,20 +546,20 @@
             </p>
           </div>
 
-          <div class="grid three">
+          <div class="grid three overview-patterns">
             <div class="card">
               <span class="badge">Pattern A</span>
               <h3>Studio return to Flex</h3>
               <p>
-                Studio owns the voice journey, redirects the caller to LiveKit,
-                then resumes and runs Send to Flex when the AI escalates.
+                Studio owns the journey, redirects to LiveKit, then resumes and
+                sends the caller to Flex on escalation.
               </p>
             </div>
             <div class="card">
               <span class="badge blue">Pattern B</span>
               <h3>Direct Enqueue to Flex</h3>
               <p>
-                The Twilio number calls <code>/voice</code> directly, then
+                Twilio calls <code>/voice</code> directly. On escalation,
                 <code>/escalate</code> updates the parent call with
                 <code>&lt;Enqueue&gt;</code>.
               </p>
@@ -547,9 +568,9 @@
               <span class="badge teal">Pattern C</span>
               <h3>Direct TwiML route</h3>
               <p>
-                The same parent call update can dial another destination,
-                enter a conference, reach a SIP endpoint, or redirect to a
-                custom voice app.
+                Twilio updates the parent call with <code>&lt;Dial&gt;</code>,
+                <code>&lt;Conference&gt;</code>, <code>&lt;Sip&gt;</code>, or
+                a custom <code>&lt;Redirect&gt;</code>.
               </p>
             </div>
           </div>
