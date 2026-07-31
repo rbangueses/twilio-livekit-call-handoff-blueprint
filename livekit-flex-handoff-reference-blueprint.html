@@ -424,11 +424,7 @@
             <span>Voice + LiveKit + Flex</span>
           </div>
           <div class="diagram-wrap">
-            <svg viewBox="0 0 920 610" role="img" aria-labelledby="diagram-title diagram-desc">
-              <title id="diagram-title">LiveKit to Twilio Flex handoff architecture</title>
-              <desc id="diagram-desc">
-                Caller reaches Twilio, Twilio sends the call to LiveKit over SIP, LiveKit agent escalates through Twilio Functions, and Twilio either returns to Studio Send to Flex or directly enqueues the original parent call.
-              </desc>
+            <svg viewBox="0 0 920 650" role="img" aria-label="LiveKit to Twilio Flex handoff architecture">
               <defs>
                 <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
                   <path d="M2,2 L10,6 L2,10 Z" fill="#5a6472" />
@@ -446,58 +442,55 @@
                 </style>
               </defs>
 
-              <rect x="28" y="38" width="160" height="88" rx="8" class="box" />
-              <text x="108" y="76" text-anchor="middle" class="label">Caller</text>
-              <text x="108" y="101" text-anchor="middle" class="small">Inbound voice call</text>
+              <rect x="35" y="52" width="155" height="86" rx="8" class="box" />
+              <text x="112" y="88" text-anchor="middle" class="label">Caller</text>
+              <text x="112" y="113" text-anchor="middle" class="small">Inbound call</text>
 
-              <rect x="260" y="24" width="210" height="116" rx="8" class="box-red" />
-              <text x="365" y="64" text-anchor="middle" class="label">Twilio Entry</text>
-              <text x="365" y="88" text-anchor="middle" class="small">Studio TwiML Redirect or /voice</text>
-              <text x="365" y="112" text-anchor="middle" class="small">dials SIP + parent CallSid</text>
+              <rect x="255" y="40" width="225" height="110" rx="8" class="box-red" />
+              <text x="367" y="72" text-anchor="middle" class="label">Twilio Entry</text>
+              <text x="367" y="96" text-anchor="middle" class="small">Studio Redirect</text>
+              <text x="367" y="118" text-anchor="middle" class="small">or /voice Function</text>
+              <text x="367" y="140" text-anchor="middle" class="small">adds parent CallSid</text>
 
-              <rect x="560" y="24" width="220" height="116" rx="8" class="box-blue" />
-              <text x="670" y="64" text-anchor="middle" class="label">LiveKit SIP</text>
-              <text x="670" y="88" text-anchor="middle" class="small">Inbound trunk + dispatch</text>
-              <text x="670" y="112" text-anchor="middle" class="small">attributes: parentCallSid</text>
+              <rect x="590" y="40" width="245" height="110" rx="8" class="box-blue" />
+              <text x="712" y="72" text-anchor="middle" class="label">LiveKit SIP</text>
+              <text x="712" y="100" text-anchor="middle" class="small">Inbound trunk</text>
+              <text x="712" y="124" text-anchor="middle" class="small">dispatch to agent</text>
 
-              <rect x="560" y="244" width="220" height="112" rx="8" class="box-blue" />
-              <text x="670" y="284" text-anchor="middle" class="label">LiveKit Agent</text>
-              <text x="670" y="308" text-anchor="middle" class="small">self-serve first</text>
-              <text x="670" y="332" text-anchor="middle" class="small">calls transfer_to_flex</text>
+              <rect x="590" y="250" width="245" height="110" rx="8" class="box-blue" />
+              <text x="712" y="288" text-anchor="middle" class="label">LiveKit Agent</text>
+              <text x="712" y="314" text-anchor="middle" class="small">self-serve first</text>
+              <text x="712" y="338" text-anchor="middle" class="small">calls transfer_to_flex</text>
 
-              <rect x="260" y="244" width="210" height="112" rx="8" class="box-red" />
-              <text x="365" y="284" text-anchor="middle" class="label">Twilio Handoff</text>
-              <text x="365" y="308" text-anchor="middle" class="small">/studio_escalate returns to Studio</text>
-              <text x="365" y="332" text-anchor="middle" class="small">or /escalate enqueues directly</text>
+              <rect x="255" y="250" width="225" height="120" rx="8" class="box-red" />
+              <text x="367" y="286" text-anchor="middle" class="label">Twilio Handoff</text>
+              <text x="367" y="312" text-anchor="middle" class="small">/studio_escalate</text>
+              <text x="367" y="336" text-anchor="middle" class="small">or /escalate</text>
+              <text x="367" y="358" text-anchor="middle" class="small">updates parent call</text>
 
-              <rect x="260" y="454" width="210" height="104" rx="8" class="box-teal" />
-              <text x="365" y="494" text-anchor="middle" class="label">Studio or TaskRouter</text>
-              <text x="365" y="518" text-anchor="middle" class="small">Send to Flex or Enqueue</text>
-              <text x="365" y="542" text-anchor="middle" class="small">summary, intent, CallSid</text>
+              <rect x="255" y="510" width="225" height="105" rx="8" class="box-teal" />
+              <text x="367" y="542" text-anchor="middle" class="label">Route to Flex</text>
+              <text x="367" y="566" text-anchor="middle" class="small">Studio Send to Flex</text>
+              <text x="367" y="588" text-anchor="middle" class="small">or TaskRouter Enqueue</text>
 
-              <rect x="560" y="454" width="220" height="104" rx="8" class="box-teal" />
-              <text x="670" y="494" text-anchor="middle" class="label">Flex Agent</text>
-              <text x="670" y="518" text-anchor="middle" class="small">answers live caller</text>
-              <text x="670" y="542" text-anchor="middle" class="small">with handoff context</text>
+              <rect x="590" y="510" width="245" height="105" rx="8" class="box-teal" />
+              <text x="712" y="548" text-anchor="middle" class="label">Flex Agent</text>
+              <text x="712" y="574" text-anchor="middle" class="small">answers live caller</text>
+              <text x="712" y="596" text-anchor="middle" class="small">with handoff context</text>
 
-              <path d="M188 82 H250" class="line" />
-              <path d="M470 82 H550" class="line" />
-              <path d="M670 140 V232" class="line" />
-              <path d="M560 300 H480" class="dash" />
-              <path d="M365 356 V442" class="line" />
-              <path d="M470 506 H550" class="line" />
+              <path d="M190 95 H245" class="line" />
+              <path d="M480 95 H580" class="line" />
+              <path d="M712 150 V240" class="line" />
+              <path d="M590 305 H490" class="dash" />
+              <path d="M367 370 V500" class="line" />
+              <path d="M480 562 H580" class="line" />
 
-              <text x="220" y="64" text-anchor="middle" class="tiny">1 INBOUND</text>
-              <text x="512" y="64" text-anchor="middle" class="tiny">2 SIP</text>
-              <text x="700" y="198" text-anchor="middle" class="tiny">3 AGENT SESSION</text>
-              <text x="520" y="284" text-anchor="middle" class="tiny">4 ESCALATE</text>
-              <text x="412" y="408" text-anchor="middle" class="tiny">5 ROUTE PARENT CALL</text>
-              <text x="515" y="488" text-anchor="middle" class="tiny">6 ROUTE</text>
-
-              <rect x="34" y="212" width="390" height="86" rx="8" fill="#f8fafc" stroke="#d9e0e8" />
-              <text x="54" y="246" class="label">Why parent CallSid?</text>
-              <text x="54" y="271" class="small">The SIP leg belongs to LiveKit. The original parent leg is the live caller.</text>
-              <text x="54" y="292" class="small">Updating that parent call is what moves the caller into Flex.</text>
+              <text x="218" y="76" text-anchor="middle" class="tiny">1 INBOUND</text>
+              <text x="530" y="76" text-anchor="middle" class="tiny">2 SIP</text>
+              <text x="745" y="205" text-anchor="middle" class="tiny">3 AGENT SESSION</text>
+              <text x="535" y="288" text-anchor="middle" class="tiny">4 ESCALATE</text>
+              <text x="420" y="438" text-anchor="middle" class="tiny">5 ROUTE PARENT</text>
+              <text x="530" y="544" text-anchor="middle" class="tiny">6 FLEX</text>
             </svg>
           </div>
         </div>
