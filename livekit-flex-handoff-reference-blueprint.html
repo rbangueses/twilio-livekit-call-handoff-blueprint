@@ -857,17 +857,16 @@ const sipParams = new URLSearchParams({
 
       <section class="section alt">
         <div class="shell">
-          <p class="section-kicker">Adaptation</p>
-          <h2>Pattern C: route without TaskRouter</h2>
+          <p class="section-kicker">Implementation Guide</p>
+          <h2>Build from the repo</h2>
           <p class="section-lede">
-            Flex is the concrete tested target in this blueprint, not a
-            requirement of the parent-call update pattern. If your agent stack
-            uses TaskRouter, enqueue the parent call and pass context as task
-            attributes. If it does not, route the live call with TwiML such as
-            <code>&lt;Dial&gt;</code>, <code>&lt;Conference&gt;</code>, or
-            <code>&lt;Redirect&gt;</code>, and provide the handoff summary to
-            the receiving system through a separate context channel.
+            The repository includes the README setup guide, Twilio Functions,
+            LiveKit agent examples, SIP templates, Studio Flow sample, and
+            local tests used by this blueprint.
           </p>
+          <div class="hero-actions">
+            <a class="button primary" href="https://github.com/rbangueses/twilio-livekit-flex-handoff-blueprint">Open GitHub Repo</a>
+          </div>
         </div>
       </section>
     </main>
