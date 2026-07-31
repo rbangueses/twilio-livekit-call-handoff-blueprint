@@ -1,5 +1,5 @@
 {
-  "name": "livekit-flex-handoff-functions",
+  "name": "livekit-call-handoff-functions",
   "version": "0.1.0",
   "private": true,
   "type": "commonjs",

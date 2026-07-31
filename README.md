@@ -1,4 +1,4 @@
-# Twilio LiveKit Flex Handoff
+# Twilio LiveKit Call Handoff
 
 Conversational AI agents need a clean path to escalate to a human when they cannot resolve an interaction on their own.
 
@@ -6,7 +6,7 @@ This repo is a working blueprint for handing an active phone call from a LiveKit
 
 Flex is the reference human-agent destination in this repo. The same parent-call update pattern can also route to another TaskRouter-powered agent desktop, a `<Dial>` destination, a conference, a SIP endpoint, or a custom Programmable Voice app. If the destination is not Flex or TaskRouter, you will need a separate way to pass the conversation summary and context to the receiving system.
 
-For a visual walkthrough, open [livekit-flex-handoff-reference-blueprint.html](livekit-flex-handoff-reference-blueprint.html).
+For a visual walkthrough, open [index.html](index.html) locally or the published GitHub Pages site after deployment.
 
 In this example the Twilio-side backend uses **Twilio Functions**.
 
@@ -31,7 +31,7 @@ You need:
 - The LiveKit CLI if you want to create the SIP trunk and dispatch rule from the terminal.
 - The Twilio CLI if you want to deploy the Functions from this repo.
 
-For the tested Flex paths, you also need:
+For the tested TaskRouter/Flex paths, you also need:
 
 - Flex enabled in the Twilio account.
 - The Flex TaskRouter Workflow SID that should receive escalated voice tasks. This must start with `WW`; do not use the Flex TaskRouter Workspace SID, which starts with `WS`.
@@ -113,7 +113,7 @@ HANDOFF_TOKEN=replace_with_a_long_random_token
 
 `STUDIO_FLOW_WEBHOOK_URL` is required for Pattern A. If you create the Studio Flow after the first Function deployment, add the Flow webhook URL to `serverless/.env` and deploy again.
 
-The bundled serverless project is wired for the tested Flex paths and validates the Flex workflow SID. For Pattern C, adapt the `/escalate` Function to emit your chosen TwiML route and adjust the required environment variables to match that destination.
+The bundled serverless project is wired for the tested TaskRouter/Flex paths and validates the Flex workflow SID. For Pattern C, adapt the `/escalate` Function to emit your chosen TwiML route and adjust the required environment variables to match that destination.
 
 Deploy:
 
@@ -185,7 +185,7 @@ The inbound trunk maps custom SIP headers into LiveKit participant attributes:
 
 ### 3.3 Add the LiveKit Agent Tool
 
-The LiveKit agent only has access to the Flex escalation tool if the tool is implemented in the agent source code. This is not configured in the LiveKit SIP trunk or Twilio Function.
+The LiveKit agent only has access to the handoff tool if the tool is implemented in the agent source code. This is not configured in the LiveKit SIP trunk or Twilio Function.
 
 For the Python agent, use [examples/livekit_agent_tool.py](examples/livekit_agent_tool.py) as the model. It adds:
 
