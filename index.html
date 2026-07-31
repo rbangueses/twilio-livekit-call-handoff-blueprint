@@ -509,7 +509,7 @@
 
               <rect x="255" y="510" width="225" height="105" rx="8" class="box-teal" />
               <text x="367" y="542" text-anchor="middle" class="label">Route Caller</text>
-              <text x="367" y="566" text-anchor="middle" class="small">Send to Flex, Enqueue,</text>
+              <text x="367" y="566" text-anchor="middle" class="small">Studio, TaskRouter,</text>
               <text x="367" y="588" text-anchor="middle" class="small">or custom TwiML</text>
 
               <rect x="590" y="510" width="245" height="105" rx="8" class="box-teal" />
@@ -529,7 +529,7 @@
               <text x="745" y="205" text-anchor="middle" class="tiny">3 AGENT SESSION</text>
               <text x="535" y="288" text-anchor="middle" class="tiny">4 ESCALATE</text>
               <text x="420" y="438" text-anchor="middle" class="tiny">5 ROUTE PARENT</text>
-              <text x="530" y="544" text-anchor="middle" class="tiny">6 FLEX</text>
+              <text x="530" y="544" text-anchor="middle" class="tiny">6 ROUTE</text>
             </svg>
           </div>
         </div>
@@ -546,7 +546,7 @@
             an inbound support call. When the agent cannot resolve the issue,
             it calls a tool that updates the original Twilio call. Flex is the
             tested reference destination, but the same pattern can route the
-            live caller to another TaskRouter workflow, voice app, SIP endpoint,
+            live caller through Studio, TaskRouter, a voice app, SIP endpoint,
             conference, or dial target.
           </p>
 
@@ -563,15 +563,15 @@
           <div class="grid three overview-patterns">
             <div class="card">
               <span class="badge">Pattern A</span>
-              <h3>Studio return to Flex</h3>
+              <h3>Using Studio</h3>
               <p>
                 Studio owns the journey, redirects to LiveKit, then resumes and
-                sends the caller to Flex on escalation.
+                chooses the next route when the AI escalates.
               </p>
             </div>
             <div class="card">
               <span class="badge blue">Pattern B</span>
-              <h3>Direct Enqueue to Flex</h3>
+              <h3>Using TaskRouter</h3>
               <p>
                 Twilio calls <code>/voice</code> directly. On escalation,
                 <code>/escalate</code> updates the parent call with
@@ -605,7 +605,7 @@
           <div class="grid three">
             <div class="card">
               <span class="badge">Pattern A</span>
-              <h3>Studio return to Flex</h3>
+              <h3>Using Studio</h3>
               <p>
                 The Twilio number starts a Studio Flow. Studio's
                 <code>redirect_to_livekit</code> TwiML Redirect widget calls
@@ -617,12 +617,13 @@
                 <code>/studio_escalate</code>. That Function updates the parent
                 call with a <code>&lt;Redirect&gt;</code> back to the Studio
                 Flow webhook using <code>FlowEvent=return</code>. Studio then
-                follows the widget's return transition into Send to Flex.
+                follows the widget's return transition into the configured
+                Studio route.
               </p>
             </div>
             <div class="card">
               <span class="badge blue">Pattern B</span>
-              <h3>Direct Enqueue to Flex</h3>
+              <h3>Using TaskRouter</h3>
               <p>
                 The Twilio number invokes <code>/voice</code> directly.
                 <code>/voice</code> returns <code>&lt;Dial&gt;&lt;Sip&gt;</code>
@@ -632,7 +633,7 @@
                 When the LiveKit agent escalates, it posts to
                 <code>/escalate</code>. That Function updates the parent call
                 with <code>&lt;Enqueue workflowSid="WW..."&gt;</code> and
-                embeds the handoff summary as TaskRouter attributes.
+                embeds the handoff summary as TaskRouter task attributes.
               </p>
             </div>
             <div class="card">
@@ -691,7 +692,7 @@
                 <td><code>studio/livekit-flex-handoff-flow.example.json</code></td>
                 <td>
                   Provides a sample Trigger -> TwiML Redirect -> Send to Flex
-                  flow for Pattern A.
+                  flow for the Studio pattern.
                 </td>
               </tr>
               <tr>
@@ -743,13 +744,13 @@ const sipParams = new URLSearchParams({
 });</code></pre>
             </div>
             <div class="card">
-              <h3>Pattern A: return to Studio</h3>
+              <h3>Pattern A: Studio return</h3>
               <pre><code>&lt;Redirect method="POST"&gt;
   .../Flows/FW...?FlowEvent=return
 &lt;/Redirect&gt;</code></pre>
             </div>
             <div class="card">
-              <h3>Pattern B: direct Enqueue</h3>
+              <h3>Pattern B: TaskRouter Enqueue</h3>
               <pre><code>await client.calls(parentCallSid).update({
   twiml: enqueueTwiml.toString(),
 });</code></pre>
@@ -771,11 +772,12 @@ const sipParams = new URLSearchParams({
       <section class="section">
         <div class="shell">
           <p class="section-kicker">Task Attributes</p>
-          <h2>Context passed into Flex</h2>
+          <h2>Context passed into TaskRouter</h2>
           <p class="section-lede">
             The escalation Function serializes handoff context into the
             TaskRouter task. Flex can read these attributes from the active
-            reservation or task.
+            reservation or task, and another TaskRouter-powered agent
+            experience can consume the same attributes.
           </p>
 
           <pre><code>{
@@ -826,10 +828,10 @@ const sipParams = new URLSearchParams({
             <div class="card">
               <h3>4. Configure the destination</h3>
               <p>
-                For Pattern A, import or create the Studio Flow and configure
-                Send to Flex. For Pattern B, use a Flex Workflow SID. For
-                Pattern C, decide whether the parent call should dial,
-                conference, SIP, or redirect elsewhere.
+                For Pattern A, import or create the Studio Flow. For Pattern B,
+                use a TaskRouter Workflow SID. For Pattern C, decide whether
+                the parent call should dial, conference, SIP, or redirect
+                elsewhere.
               </p>
             </div>
             <div class="card">
@@ -856,7 +858,7 @@ const sipParams = new URLSearchParams({
       <section class="section alt">
         <div class="shell">
           <p class="section-kicker">Adaptation</p>
-          <h2>Pattern C: route without Flex</h2>
+          <h2>Pattern C: route without TaskRouter</h2>
           <p class="section-lede">
             Flex is the concrete tested target in this blueprint, not a
             requirement of the parent-call update pattern. If your agent stack
