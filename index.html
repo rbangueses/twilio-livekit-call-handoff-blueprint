@@ -221,6 +221,10 @@
         color: var(--muted);
       }
 
+      .card p + p {
+        margin-top: 14px;
+      }
+
       .badge {
         display: inline-flex;
         align-items: center;
@@ -416,14 +420,14 @@
 
         <div class="hero-diagram" aria-label="Architecture diagram">
           <div class="diagram-head">
-            <span><strong>Pattern:</strong> SIP to LiveKit, parent call update to Flex</span>
-            <span>Voice + TaskRouter</span>
+            <span><strong>Patterns:</strong> Studio return or direct Enqueue</span>
+            <span>Voice + LiveKit + Flex</span>
           </div>
           <div class="diagram-wrap">
             <svg viewBox="0 0 920 610" role="img" aria-labelledby="diagram-title diagram-desc">
               <title id="diagram-title">LiveKit to Twilio Flex handoff architecture</title>
               <desc id="diagram-desc">
-                Caller reaches Twilio, Twilio dials LiveKit over SIP, LiveKit agent escalates through Twilio Functions, and Twilio updates the original parent call into Flex TaskRouter.
+                Caller reaches Twilio, Twilio sends the call to LiveKit over SIP, LiveKit agent escalates through Twilio Functions, and Twilio either returns to Studio Send to Flex or directly enqueues the original parent call.
               </desc>
               <defs>
                 <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
@@ -447,9 +451,9 @@
               <text x="108" y="101" text-anchor="middle" class="small">Inbound voice call</text>
 
               <rect x="260" y="24" width="210" height="116" rx="8" class="box-red" />
-              <text x="365" y="64" text-anchor="middle" class="label">Twilio Function</text>
-              <text x="365" y="88" text-anchor="middle" class="small">/voice returns &lt;Dial&gt;&lt;Sip&gt;</text>
-              <text x="365" y="112" text-anchor="middle" class="small">adds X-Parent-CallSid</text>
+              <text x="365" y="64" text-anchor="middle" class="label">Twilio Entry</text>
+              <text x="365" y="88" text-anchor="middle" class="small">Studio TwiML Redirect or /voice</text>
+              <text x="365" y="112" text-anchor="middle" class="small">dials SIP + parent CallSid</text>
 
               <rect x="560" y="24" width="220" height="116" rx="8" class="box-blue" />
               <text x="670" y="64" text-anchor="middle" class="label">LiveKit SIP</text>
@@ -462,13 +466,13 @@
               <text x="670" y="332" text-anchor="middle" class="small">calls transfer_to_flex</text>
 
               <rect x="260" y="244" width="210" height="112" rx="8" class="box-red" />
-              <text x="365" y="284" text-anchor="middle" class="label">Twilio Function</text>
-              <text x="365" y="308" text-anchor="middle" class="small">/escalate updates parent</text>
-              <text x="365" y="332" text-anchor="middle" class="small">&lt;Enqueue workflowSid&gt;</text>
+              <text x="365" y="284" text-anchor="middle" class="label">Twilio Handoff</text>
+              <text x="365" y="308" text-anchor="middle" class="small">/studio_escalate returns to Studio</text>
+              <text x="365" y="332" text-anchor="middle" class="small">or /escalate enqueues directly</text>
 
               <rect x="260" y="454" width="210" height="104" rx="8" class="box-teal" />
-              <text x="365" y="494" text-anchor="middle" class="label">TaskRouter</text>
-              <text x="365" y="518" text-anchor="middle" class="small">voice task + attributes</text>
+              <text x="365" y="494" text-anchor="middle" class="label">Studio or TaskRouter</text>
+              <text x="365" y="518" text-anchor="middle" class="small">Send to Flex or Enqueue</text>
               <text x="365" y="542" text-anchor="middle" class="small">summary, intent, CallSid</text>
 
               <rect x="560" y="454" width="220" height="104" rx="8" class="box-teal" />
@@ -487,7 +491,7 @@
               <text x="512" y="64" text-anchor="middle" class="tiny">2 SIP</text>
               <text x="700" y="198" text-anchor="middle" class="tiny">3 AGENT SESSION</text>
               <text x="520" y="284" text-anchor="middle" class="tiny">4 ESCALATE</text>
-              <text x="412" y="408" text-anchor="middle" class="tiny">5 PARENT CALL UPDATE</text>
+              <text x="412" y="408" text-anchor="middle" class="tiny">5 ROUTE PARENT CALL</text>
               <text x="515" y="488" text-anchor="middle" class="tiny">6 ROUTE</text>
 
               <rect x="34" y="212" width="390" height="86" rx="8" fill="#f8fafc" stroke="#d9e0e8" />
@@ -508,9 +512,9 @@
           <p class="section-lede">
             The integration lets a LiveKit voice agent handle the first part of
             an inbound support call. When the agent cannot resolve the issue,
-            it calls a tool that updates the original Twilio call into a Flex
-            TaskRouter workflow. The caller stays on the same live call while
-            the human agent receives structured handoff context.
+            it calls a tool that updates the original Twilio call. The caller
+            stays on the same live call while the human agent receives
+            structured handoff context.
           </p>
 
           <div class="callout">
@@ -525,24 +529,25 @@
 
           <div class="grid three">
             <div class="card">
-              <span class="badge">Twilio Voice</span>
-              <h3>Owns the live caller leg</h3>
+              <span class="badge">Pattern A</span>
+              <h3>Studio return to Flex</h3>
               <p>
-                Twilio receives the inbound phone call and keeps the parent call
-                active while a SIP child leg connects to LiveKit.
+                Studio owns the voice journey, redirects the caller to LiveKit,
+                then resumes and runs Send to Flex when the AI escalates.
               </p>
             </div>
             <div class="card">
-              <span class="badge blue">LiveKit</span>
-              <h3>Runs the AI voice agent</h3>
+              <span class="badge blue">Pattern B</span>
+              <h3>Direct Enqueue to Flex</h3>
               <p>
-                LiveKit receives the SIP media, starts the configured agent, and
-                exposes SIP headers as participant attributes.
+                The Twilio number calls <code>/voice</code> directly, then
+                <code>/escalate</code> updates the parent call with
+                <code>&lt;Enqueue&gt;</code>.
               </p>
             </div>
             <div class="card">
               <span class="badge teal">Flex</span>
-              <h3>Receives the escalation</h3>
+              <h3>Receives context</h3>
               <p>
                 TaskRouter receives a voice task containing the handoff summary,
                 intent, caller details, and parent call SID.
@@ -563,64 +568,38 @@
             enqueued into Flex.
           </p>
 
-          <div class="flow">
-            <div class="flow-item">
-              <div>
-                <h3>Caller reaches Twilio</h3>
-                <p>
-                  The Twilio number invokes the public <code>/voice</code>
-                  Function for the inbound call.
-                </p>
-              </div>
+          <div class="grid two">
+            <div class="card">
+              <span class="badge">Pattern A</span>
+              <h3>Studio return to Flex</h3>
+              <p>
+                The Twilio number starts a Studio Flow. Studio's
+                <code>redirect_to_livekit</code> TwiML Redirect widget calls
+                <code>/studio_voice</code>, which dials LiveKit over SIP and
+                passes <code>X-Parent-CallSid</code>.
+              </p>
+              <p>
+                When the LiveKit agent escalates, it posts to
+                <code>/studio_escalate</code>. That Function updates the parent
+                call with a <code>&lt;Redirect&gt;</code> back to the Studio
+                Flow webhook using <code>FlowEvent=return</code>. Studio then
+                follows the widget's return transition into Send to Flex.
+              </p>
             </div>
-            <div class="flow-item">
-              <div>
-                <h3>Twilio dials LiveKit over SIP</h3>
-                <p>
-                  <code>/voice</code> returns <code>&lt;Dial&gt;&lt;Sip&gt;</code>
-                  with authentication and custom SIP headers, including
-                  <code>X-Parent-CallSid</code>.
-                </p>
-              </div>
-            </div>
-            <div class="flow-item">
-              <div>
-                <h3>LiveKit starts the configured agent</h3>
-                <p>
-                  The inbound SIP trunk maps <code>X-Parent-CallSid</code> to
-                  <code>parentCallSid</code>, and the dispatch rule sends the
-                  call to the target LiveKit agent.
-                </p>
-              </div>
-            </div>
-            <div class="flow-item">
-              <div>
-                <h3>The agent requests handoff</h3>
-                <p>
-                  The LiveKit tool posts <code>parentCallSid</code>,
-                  <code>intent</code>, and <code>summary</code> to the Twilio
-                  <code>/escalate</code> Function.
-                </p>
-              </div>
-            </div>
-            <div class="flow-item">
-              <div>
-                <h3>Twilio updates the parent call</h3>
-                <p>
-                  <code>/escalate</code> replaces the parent call's TwiML with
-                  <code>&lt;Enqueue workflowSid="WW..."&gt;</code> and includes
-                  the handoff data as TaskRouter attributes.
-                </p>
-              </div>
-            </div>
-            <div class="flow-item">
-              <div>
-                <h3>Flex receives the voice task</h3>
-                <p>
-                  A human agent accepts the task in Flex and receives the live
-                  caller plus the context collected by the AI agent.
-                </p>
-              </div>
+            <div class="card">
+              <span class="badge blue">Pattern B</span>
+              <h3>Direct Enqueue to Flex</h3>
+              <p>
+                The Twilio number invokes <code>/voice</code> directly.
+                <code>/voice</code> returns <code>&lt;Dial&gt;&lt;Sip&gt;</code>
+                with LiveKit SIP authentication and the parent call header.
+              </p>
+              <p>
+                When the LiveKit agent escalates, it posts to
+                <code>/escalate</code>. That Function updates the parent call
+                with <code>&lt;Enqueue workflowSid="WW..."&gt;</code> and
+                embeds the handoff summary as TaskRouter attributes.
+              </p>
             </div>
           </div>
         </div>
@@ -647,10 +626,23 @@
             <tbody>
               <tr>
                 <td>Twilio Functions</td>
-                <td><code>serverless/functions/voice.js</code><br /><code>serverless/functions/escalate.js</code></td>
                 <td>
-                  Create the SIP dial leg to LiveKit and update the parent call
-                  into Flex during escalation.
+                  <code>serverless/functions/studio_voice.js</code><br />
+                  <code>serverless/functions/studio_escalate.js</code><br />
+                  <code>serverless/functions/voice.js</code><br />
+                  <code>serverless/functions/escalate.js</code>
+                </td>
+                <td>
+                  Create the SIP dial leg to LiveKit, then either return the
+                  parent call to Studio or enqueue it directly into Flex.
+                </td>
+              </tr>
+              <tr>
+                <td>Studio Flow</td>
+                <td><code>studio/livekit-flex-handoff-flow.example.json</code></td>
+                <td>
+                  Provides a sample Trigger -> TwiML Redirect -> Send to Flex
+                  flow for Pattern A.
                 </td>
               </tr>
               <tr>
@@ -701,7 +693,13 @@ const sipParams = new URLSearchParams({
 });</code></pre>
             </div>
             <div class="card">
-              <h3>Call update during escalation</h3>
+              <h3>Pattern A: return to Studio</h3>
+              <pre><code>&lt;Redirect method="POST"&gt;
+  .../Flows/FW...?FlowEvent=return
+&lt;/Redirect&gt;</code></pre>
+            </div>
+            <div class="card">
+              <h3>Pattern B: direct Enqueue</h3>
               <pre><code>await client.calls(parentCallSid).update({
   twiml: enqueueTwiml.toString(),
 });</code></pre>
@@ -745,14 +743,16 @@ const sipParams = new URLSearchParams({
       <section class="section alt">
         <div class="shell">
           <p class="section-kicker">Setup Checklist</p>
-          <h2>Build it in four moves</h2>
+          <h2>Build it in five moves</h2>
           <div class="grid two">
             <div class="card">
               <h3>1. Deploy Twilio Functions</h3>
               <p>
-                Deploy <code>/voice</code> and <code>/escalate</code> with the
-                Flex workflow SID, LiveKit SIP host, SIP credentials, and
-                shared handoff token.
+                Deploy <code>/studio_voice</code>,
+                <code>/studio_escalate</code>, <code>/voice</code>, and
+                <code>/escalate</code> with the Flex workflow SID, LiveKit SIP
+                host, SIP credentials, Studio Flow webhook URL, and shared
+                handoff token.
               </p>
             </div>
             <div class="card">
@@ -763,18 +763,27 @@ const sipParams = new URLSearchParams({
               </p>
             </div>
             <div class="card">
-              <h3>3. Configure the Twilio number</h3>
+              <h3>3. Choose number routing</h3>
               <p>
-                Point the Twilio number's incoming voice webhook at the public
+                For Pattern A, point the Twilio number to the Studio Flow
+                webhook. For Pattern B, point it directly at the public
                 <code>/voice</code> Function URL.
               </p>
             </div>
             <div class="card">
-              <h3>4. Add the LiveKit tool</h3>
+              <h3>4. Configure Studio if using Pattern A</h3>
               <p>
-                Add <code>transfer_to_flex</code> to the LiveKit agent and set
-                <code>HANDOFF_SERVICE_URL</code> plus <code>HANDOFF_TOKEN</code>
-                in the agent environment.
+                Import or create the Studio Flow with TwiML Redirect to
+                <code>/studio_voice</code>, then configure Send to Flex with
+                the Flex workflow and voice Channel.
+              </p>
+            </div>
+            <div class="card">
+              <h3>5. Add the LiveKit tool</h3>
+              <p>
+                Add <code>transfer_to_flex</code> to the LiveKit agent. Use
+                <code>/studio_escalate</code> for Pattern A or
+                <code>/escalate</code> for Pattern B.
               </p>
             </div>
           </div>
