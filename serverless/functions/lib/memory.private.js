@@ -7,26 +7,25 @@ async function resolveMemoryProfile(context, phoneNumber) {
 
   const response = await memoryFetch(
     context,
-    `/v1/Stores/${encodeURIComponent(context.MEMORY_STORE_ID)}/Profiles`,
+    `/v1/Stores/${encodeURIComponent(context.MEMORY_STORE_ID)}/Profiles/Lookup`,
     {
       method: "POST",
       body: JSON.stringify({
-        traits: {
-          contact: {
-            phone: phoneNumber,
-          },
-        },
+        idType: "phone",
+        value: phoneNumber,
       }),
     },
   );
 
+  const memoryProfileId =
+    response.id ||
+    response.profile?.id ||
+    response.profiles?.[0]?.id ||
+    null;
+
   return {
     memoryStoreId: context.MEMORY_STORE_ID,
-    memoryProfileId:
-      response.id ||
-      response.profile?.id ||
-      response.profiles?.[0]?.id ||
-      null,
+    memoryProfileId,
     customerPhone: phoneNumber,
   };
 }
@@ -37,12 +36,20 @@ async function recallMemoryProfile(
     memoryStoreId,
     memoryProfileId,
     query,
+    customerPhone,
     observationsLimit = 5,
     summariesLimit = 3,
   },
 ) {
   if (isBlank(memoryStoreId)) {
     throw new Error("missing_memory_store_id");
+  }
+  if (isBlank(memoryProfileId) && !isBlank(customerPhone)) {
+    const memoryProfile = await resolveMemoryProfile(
+      { ...context, MEMORY_STORE_ID: memoryStoreId },
+      customerPhone,
+    );
+    memoryProfileId = memoryProfile?.memoryProfileId;
   }
   if (isBlank(memoryProfileId)) {
     throw new Error("missing_memory_profile_id");

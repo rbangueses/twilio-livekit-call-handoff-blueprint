@@ -20,6 +20,7 @@ exports.handler = async function (context, event, callback) {
     const recall = await recallMemoryProfile(context, {
       memoryStoreId: payload.memoryStoreId,
       memoryProfileId: payload.memoryProfileId,
+      customerPhone: payload.customerPhone,
       query: payload.query,
       observationsLimit: Number(payload.observationsLimit) || 5,
       summariesLimit: Number(payload.summariesLimit) || 3,

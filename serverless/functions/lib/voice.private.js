@@ -24,9 +24,11 @@ async function dialLiveKit(context, event, callback, { withMemory = false, logPr
   if (withMemory) {
     try {
       const memoryProfile = await resolveMemoryProfile(context, event.From);
-      if (memoryProfile?.memoryProfileId) {
+      if (memoryProfile?.memoryStoreId && memoryProfile?.customerPhone) {
         sipHeaders["X-Customer-Phone"] = memoryProfile.customerPhone;
         sipHeaders["X-Memory-Store-Id"] = memoryProfile.memoryStoreId;
+      }
+      if (memoryProfile?.memoryProfileId) {
         sipHeaders["X-Memory-Profile-Id"] = memoryProfile.memoryProfileId;
       }
     } catch (error) {

@@ -55,18 +55,21 @@ def build_memory_recall_payload(
         attributes,
         ("memoryProfileId", "sip.h.X-Memory-Profile-Id"),
     )
+    customer_phone = first_present(attributes, ("customerPhone", "sip.h.X-Customer-Phone"))
     if not memory_store_id:
         raise ValueError("Missing memoryStoreId from LiveKit SIP participant attributes.")
-    if not memory_profile_id:
-        raise ValueError("Missing memoryProfileId from LiveKit SIP participant attributes.")
+    if not memory_profile_id and not customer_phone:
+        raise ValueError(
+            "Missing memoryProfileId or customerPhone from LiveKit SIP participant attributes."
+        )
 
     payload = {
         "memoryStoreId": memory_store_id,
-        "memoryProfileId": memory_profile_id,
     }
 
     optional_values = {
-        "customerPhone": first_present(attributes, ("customerPhone", "sip.h.X-Customer-Phone")),
+        "memoryProfileId": memory_profile_id,
+        "customerPhone": customer_phone,
         "query": query.strip(),
     }
     payload.update({key: value for key, value in optional_values.items() if value})

@@ -207,7 +207,7 @@ The inbound trunk maps custom SIP headers into LiveKit participant attributes:
 - optional `X-Memory-Store-Id` -> `memoryStoreId`
 - optional `X-Memory-Profile-Id` -> `memoryProfileId`
 
-If you created the trunk before adding Conversation Memory, update the trunk's `headers_to_attributes` mapping or recreate the trunk from the current [livekit/inbound-trunk.example.json](livekit/inbound-trunk.example.json). The baseline handoff only needs `parentCallSid` and `handoffId`; the Memory tool needs the three optional Memory attributes.
+If you created the trunk before adding Conversation Memory, update the trunk's `headers_to_attributes` mapping or recreate the trunk from the current [livekit/inbound-trunk.example.json](livekit/inbound-trunk.example.json). The baseline handoff only needs `parentCallSid` and `handoffId`; the Memory tool needs `customerPhone` and `memoryStoreId`, plus `memoryProfileId` when the profile is found before dialing LiveKit.
 
 ### 3.3 Add the LiveKit Agent Tool
 
@@ -475,9 +475,9 @@ The Memory-enhanced flow is:
 1. Caller dials your Twilio number.
 2. Twilio invokes `/voice_memory` or `/studio_voice_memory`.
 3. The Function resolves a Memory profile for `event.From` using `MEMORY_STORE_ID`.
-4. The Function dials LiveKit with the normal parent-call headers and the optional Memory headers.
-5. The LiveKit agent calls `recall_customer_memory` only if prior context would help the conversation.
-6. If the agent escalates, `/escalate_memory` passes Memory identifiers into TaskRouter attributes, or `/studio_escalate_memory` returns them to Studio so Send to Flex can include them.
+4. The Function dials LiveKit with the normal parent-call headers, `customerPhone`, `memoryStoreId`, and `memoryProfileId` if the profile is found immediately.
+5. The LiveKit agent calls `recall_customer_memory` only if prior context would help the conversation. If `memoryProfileId` was not known at call setup, `/memory_recall` can resolve it from `customerPhone`.
+6. If the agent escalates, `/escalate_memory` passes Memory context into TaskRouter attributes, or `/studio_escalate_memory` returns it to Studio so Send to Flex can include it.
 
 The lookup is best-effort. If Memory is not configured or the lookup fails, the Memory voice endpoints still dial LiveKit without Memory headers so the caller is not blocked from reaching the agent.
 
@@ -552,7 +552,7 @@ For Pattern A:
 5. Trigger the LiveKit `transferToFlex` tool.
 6. Confirm Studio resumes through the TwiML Redirect widget's `return` transition.
 7. Confirm Send to Flex creates a voice task with `reason=ai_escalation` and the handoff summary in task attributes.
-8. If using Memory, confirm the LiveKit participant has `customerPhone`, `memoryStoreId`, and `memoryProfileId`, and confirm Send to Flex includes those values in task attributes.
+8. If using Memory, confirm the LiveKit participant has `customerPhone` and `memoryStoreId`; `memoryProfileId` appears when the profile is found before dialing or after the recall tool resolves it.
 
 For Pattern B:
 
@@ -561,7 +561,7 @@ For Pattern B:
 3. Confirm the call lands in a LiveKit room with `parentCallSid` and `handoffId` participant attributes.
 4. Trigger the LiveKit `transferToFlex` tool.
 5. Confirm a new Flex voice task appears with `reason=ai_escalation` and the handoff summary in task attributes.
-6. If using Memory, confirm the LiveKit participant and Flex task attributes include `customerPhone`, `memoryStoreId`, and `memoryProfileId`.
+6. If using Memory, confirm the LiveKit participant and Flex task attributes include `customerPhone` and `memoryStoreId`; `memoryProfileId` is present when the profile has been resolved.
 
 For Pattern C:
 

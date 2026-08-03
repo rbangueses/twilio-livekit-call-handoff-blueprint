@@ -142,11 +142,41 @@ test("/voice_memory passes resolved Memory profile headers to LiveKit", async ()
   assert.equal(memoryCalls.length, 1);
   assert.equal(
     memoryCalls[0].url,
-    "https://memory.twilio.com/v1/Stores/mem_store_123/Profiles",
+    "https://memory.twilio.com/v1/Stores/mem_store_123/Profiles/Lookup",
   );
+  assert.deepEqual(JSON.parse(memoryCalls[0].options.body), {
+    idType: "phone",
+    value: "+14155550100",
+  });
   assert.match(result.toString(), /X-Customer-Phone=%2B14155550100/);
   assert.match(result.toString(), /X-Memory-Store-Id=mem_store_123/);
   assert.match(result.toString(), /X-Memory-Profile-Id=mem_profile_123/);
+});
+
+test("/voice_memory passes Memory store and caller headers when no profile is found yet", async () => {
+  installTwilioStub();
+  const { handler } = require("../functions/voice_memory");
+
+  const result = await invoke(handler, {
+    context: {
+      LIVEKIT_PHONE_NUMBER: "+14155550123",
+      LIVEKIT_SIP_HOST: "abc123.sip.livekit.cloud",
+      LIVEKIT_SIP_USERNAME: "lk-user",
+      LIVEKIT_SIP_PASSWORD: "lk-pass",
+      MEMORY_STORE_ID: "mem_store_123",
+      TWILIO_ACCOUNT_SID: "ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      TWILIO_AUTH_TOKEN: "auth-token",
+      fetch: async () => jsonResponse(200, { profiles: [] }),
+    },
+    event: {
+      CallSid: "CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      From: "+14155550100",
+    },
+  });
+
+  assert.match(result.toString(), /X-Customer-Phone=%2B14155550100/);
+  assert.match(result.toString(), /X-Memory-Store-Id=mem_store_123/);
+  assert.doesNotMatch(result.toString(), /X-Memory-Profile-Id/);
 });
 
 test("/studio_voice_memory still dials LiveKit when Memory lookup is unavailable", async () => {
@@ -213,6 +243,48 @@ test("/memory_recall returns observations and summaries for a Memory profile", a
   assert.equal(result.body.ok, true);
   assert.equal(result.body.observations[0].content, "Caller prefers email updates.");
   assert.match(result.body.text, /Caller prefers email updates/);
+});
+
+test("/memory_recall can resolve the Memory profile by caller phone", async () => {
+  installTwilioStub();
+  const { handler } = require("../functions/memory_recall");
+  const memoryCalls = [];
+
+  const result = await invoke(handler, {
+    context: {
+      HANDOFF_TOKEN: "expected-token",
+      TWILIO_ACCOUNT_SID: "ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      TWILIO_AUTH_TOKEN: "auth-token",
+      fetch: async (url, options) => {
+        memoryCalls.push({ url, options });
+        if (url.endsWith("/Profiles/Lookup")) {
+          return jsonResponse(200, { profiles: [{ id: "mem_profile_123" }] });
+        }
+        return jsonResponse(200, {
+          observations: [{ content: "Caller previously had login trouble." }],
+          summaries: [],
+        });
+      },
+    },
+    event: {
+      request: { headers: { authorization: "Bearer expected-token" } },
+      memoryStoreId: "mem_store_123",
+      customerPhone: "+14155550100",
+      query: "account access",
+    },
+  });
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(memoryCalls.length, 2);
+  assert.equal(
+    memoryCalls[0].url,
+    "https://memory.twilio.com/v1/Stores/mem_store_123/Profiles/Lookup",
+  );
+  assert.equal(
+    memoryCalls[1].url,
+    "https://memory.twilio.com/v1/Stores/mem_store_123/Profiles/mem_profile_123/Recall",
+  );
+  assert.match(result.body.text, /login trouble/);
 });
 
 test("/escalate rejects requests without the bearer token", async () => {

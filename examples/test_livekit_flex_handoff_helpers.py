@@ -144,7 +144,24 @@ class LiveKitFlexHandoffHelpersTest(unittest.TestCase):
                         query="account access history",
                     )
 
-                self.assertIn("memoryProfileId", str(error.exception))
+                self.assertIn("memoryProfileId or customerPhone", str(error.exception))
+
+    def test_builds_memory_recall_payload_with_customer_phone_when_profile_is_missing(self):
+        for module_path in MODULE_PATHS:
+            with self.subTest(module_path=module_path):
+                helpers = load_module(module_path)
+
+                payload = helpers.build_memory_recall_payload(
+                    {
+                        "memoryStoreId": "mem_store_123",
+                        "customerPhone": "+14155550100",
+                    },
+                    query="account access history",
+                )
+
+                self.assertEqual(payload["memoryStoreId"], "mem_store_123")
+                self.assertEqual(payload["customerPhone"], "+14155550100")
+                self.assertNotIn("memoryProfileId", payload)
 
     def test_posts_escalation_to_custom_handoff_path(self):
         for module_path in MODULE_PATHS:

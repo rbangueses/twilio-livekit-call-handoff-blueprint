@@ -669,11 +669,11 @@
           <div class="callout">
             <p>
               Optional Memory endpoints keep this flow non-blocking. If Memory
-              is configured, Twilio passes <code>customerPhone</code>,
-              <code>memoryStoreId</code>, and <code>memoryProfileId</code> to
-              LiveKit as SIP participant attributes. If Memory lookup fails,
-              the caller still reaches the LiveKit agent through the normal
-              parent-call handoff.
+              is configured, Twilio passes <code>customerPhone</code> and
+              <code>memoryStoreId</code> to LiveKit as SIP participant
+              attributes, plus <code>memoryProfileId</code> when the profile
+              is found before dialing. If Memory lookup fails, the caller still
+              reaches the LiveKit agent through the normal parent-call handoff.
             </p>
           </div>
         </div>
