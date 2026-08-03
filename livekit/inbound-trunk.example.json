@@ -4,7 +4,10 @@
     "numbers": ["+15551234567"],
     "headers_to_attributes": {
       "X-Parent-CallSid": "parentCallSid",
-      "X-Handoff-Id": "handoffId"
+      "X-Handoff-Id": "handoffId",
+      "X-Customer-Phone": "customerPhone",
+      "X-Memory-Store-Id": "memoryStoreId",
+      "X-Memory-Profile-Id": "memoryProfileId"
     }
   }
 }

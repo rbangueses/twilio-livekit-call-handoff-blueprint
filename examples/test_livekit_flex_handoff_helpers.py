@@ -61,6 +61,26 @@ class LiveKitFlexHandoffHelpersTest(unittest.TestCase):
                 self.assertEqual(payload["parentCallSid"], "CAparent")
                 self.assertEqual(payload["handoffId"], "handoff-raw")
 
+    def test_escalation_payload_includes_optional_memory_attributes(self):
+        for module_path in MODULE_PATHS:
+            with self.subTest(module_path=module_path):
+                helpers = load_module(module_path)
+
+                payload = helpers.build_escalation_payload(
+                    {
+                        "parentCallSid": "CAparent",
+                        "customerPhone": "+14155550100",
+                        "memoryStoreId": "mem_store_123",
+                        "memoryProfileId": "mem_profile_123",
+                    },
+                    intent="account_access",
+                    summary="Caller needs an agent with prior context.",
+                )
+
+                self.assertEqual(payload["customerPhone"], "+14155550100")
+                self.assertEqual(payload["memoryStoreId"], "mem_store_123")
+                self.assertEqual(payload["memoryProfileId"], "mem_profile_123")
+
     def test_rejects_child_sip_call_sid_without_parent_call_sid(self):
         for module_path in MODULE_PATHS:
             with self.subTest(module_path=module_path):
@@ -74,6 +94,57 @@ class LiveKitFlexHandoffHelpersTest(unittest.TestCase):
                     )
 
                 self.assertIn("parentCallSid", str(error.exception))
+
+    def test_builds_memory_recall_payload_from_mapped_sip_attributes(self):
+        for module_path in MODULE_PATHS:
+            with self.subTest(module_path=module_path):
+                helpers = load_module(module_path)
+
+                payload = helpers.build_memory_recall_payload(
+                    {
+                        "memoryStoreId": "mem_store_123",
+                        "memoryProfileId": "mem_profile_123",
+                        "customerPhone": "+14155550100",
+                    },
+                    query="account access history",
+                )
+
+                self.assertEqual(payload["memoryStoreId"], "mem_store_123")
+                self.assertEqual(payload["memoryProfileId"], "mem_profile_123")
+                self.assertEqual(payload["customerPhone"], "+14155550100")
+                self.assertEqual(payload["query"], "account access history")
+
+    def test_uses_raw_memory_header_attributes_when_mapping_is_not_ready(self):
+        for module_path in MODULE_PATHS:
+            with self.subTest(module_path=module_path):
+                helpers = load_module(module_path)
+
+                payload = helpers.build_memory_recall_payload(
+                    {
+                        "sip.h.X-Memory-Store-Id": "mem_store_raw",
+                        "sip.h.X-Memory-Profile-Id": "mem_profile_raw",
+                        "sip.h.X-Customer-Phone": "+14155550100",
+                    },
+                    query="",
+                )
+
+                self.assertEqual(payload["memoryStoreId"], "mem_store_raw")
+                self.assertEqual(payload["memoryProfileId"], "mem_profile_raw")
+                self.assertEqual(payload["customerPhone"], "+14155550100")
+                self.assertNotIn("query", payload)
+
+    def test_rejects_memory_recall_without_memory_profile(self):
+        for module_path in MODULE_PATHS:
+            with self.subTest(module_path=module_path):
+                helpers = load_module(module_path)
+
+                with self.assertRaises(ValueError) as error:
+                    helpers.build_memory_recall_payload(
+                        {"memoryStoreId": "mem_store_123"},
+                        query="account access history",
+                    )
+
+                self.assertIn("memoryProfileId", str(error.exception))
 
     def test_posts_escalation_to_custom_handoff_path(self):
         for module_path in MODULE_PATHS:
@@ -111,6 +182,48 @@ class LiveKitFlexHandoffHelpersTest(unittest.TestCase):
                 self.assertEqual(
                     requests[0][0].full_url,
                     "https://handoff.example.twil.io/studio_escalate",
+                )
+                self.assertEqual(requests[0][1], 10)
+
+    def test_posts_memory_recall_to_handoff_service(self):
+        for module_path in MODULE_PATHS:
+            with self.subTest(module_path=module_path):
+                helpers = load_module(module_path)
+                requests = []
+
+                class FakeUrlopen:
+                    def __enter__(self):
+                        return self
+
+                    def __exit__(self, exc_type, exc, tb):
+                        return False
+
+                    def read(self):
+                        return b'{"text":"Caller prefers email updates."}'
+
+                def capture_request(request, timeout):
+                    requests.append((request, timeout))
+                    return FakeUrlopen()
+
+                with mock.patch.object(
+                    helpers.urllib.request,
+                    "urlopen",
+                    side_effect=capture_request,
+                ):
+                    result = helpers.post_memory_recall(
+                        "https://handoff.example.twil.io/",
+                        "token-123",
+                        {
+                            "memoryStoreId": "mem_store_123",
+                            "memoryProfileId": "mem_profile_123",
+                            "query": "account history",
+                        },
+                    )
+
+                self.assertEqual(result["text"], "Caller prefers email updates.")
+                self.assertEqual(
+                    requests[0][0].full_url,
+                    "https://handoff.example.twil.io/memory_recall",
                 )
                 self.assertEqual(requests[0][1], 10)
 

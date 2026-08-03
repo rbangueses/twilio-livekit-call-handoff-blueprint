@@ -448,7 +448,8 @@
           <p class="hero-copy">
             A production-shaped pattern for giving a LiveKit voice agent a
             clean escape hatch back to Twilio routing, without losing the live
-            caller or the context gathered by the AI.
+            caller, the context gathered by the AI, or optional Twilio
+            Conversation Memory context.
           </p>
           <div class="hero-actions">
             <a class="button primary" href="#flow">View Call Flow</a>
@@ -459,7 +460,7 @@
 
         <div class="hero-diagram" aria-label="Architecture diagram">
           <div class="diagram-head">
-            <span><strong>Patterns:</strong> Studio, Enqueue, or custom TwiML</span>
+            <span><strong>Patterns:</strong> Studio, TaskRouter, custom TwiML, optional Memory</span>
             <span>Voice + LiveKit + routing</span>
           </div>
           <div class="diagram-wrap">
@@ -547,7 +548,9 @@
             it calls a tool that updates the original Twilio call. Flex is the
             tested reference destination, but the same pattern can route the
             live caller through Studio, TaskRouter, a voice app, SIP endpoint,
-            conference, or dial target.
+            conference, or dial target. The same architecture can also carry
+            Twilio Conversation Memory identifiers into LiveKit so the agent
+            can recall prior customer context on demand.
           </p>
 
           <div class="callout">
@@ -587,6 +590,17 @@
                 a custom <code>&lt;Redirect&gt;</code>.
               </p>
             </div>
+          </div>
+
+          <div class="callout">
+            <p>
+              Conversation Memory is optional and sits on top of Pattern A or
+              Pattern B. Use <code>/studio_voice_memory</code> or
+              <code>/voice_memory</code> to resolve a Memory profile before
+              dialing LiveKit, then let the agent call
+              <code>recall_customer_memory</code> only when prior context would
+              improve the conversation.
+            </p>
           </div>
         </div>
       </section>
@@ -651,6 +665,17 @@
               </p>
             </div>
           </div>
+
+          <div class="callout">
+            <p>
+              Optional Memory endpoints keep this flow non-blocking. If Memory
+              is configured, Twilio passes <code>customerPhone</code>,
+              <code>memoryStoreId</code>, and <code>memoryProfileId</code> to
+              LiveKit as SIP participant attributes. If Memory lookup fails,
+              the caller still reaches the LiveKit agent through the normal
+              parent-call handoff.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -679,7 +704,8 @@
                   <code>serverless/functions/studio_voice.js</code><br />
                   <code>serverless/functions/studio_escalate.js</code><br />
                   <code>serverless/functions/voice.js</code><br />
-                  <code>serverless/functions/escalate.js</code>
+                  <code>serverless/functions/escalate.js</code><br />
+                  <code>serverless/functions/*_memory.js</code>
                 </td>
                 <td>
                   Create the SIP dial leg to LiveKit, then either return the
@@ -700,8 +726,8 @@
                 <td><code>agent/agent.py</code><br /><code>agent/livekit_flex_handoff_helpers.py</code></td>
                 <td>
                   Implement the voice agent, expose <code>transfer_to_flex</code>,
-                  and post escalation payloads with the parent call SID to
-                  Twilio.
+                  optionally expose <code>recall_customer_memory</code>, and
+                  post escalation payloads with the parent call SID to Twilio.
                 </td>
               </tr>
               <tr>
@@ -789,7 +815,10 @@ const sipParams = new URLSearchParams({
   "handoffId": "CA...",
   "intent": "account_access",
   "summary": "Caller tried a new sign-in code and still needs help.",
-  "description": "Caller tried a new sign-in code and still needs help."
+  "description": "Caller tried a new sign-in code and still needs help.",
+  "customerPhone": "+15551234567",
+  "memoryStoreId": "mem_store_...",
+  "memoryProfileId": "mem_profile_..."
 }</code></pre>
         </div>
       </section>
@@ -806,7 +835,9 @@ const sipParams = new URLSearchParams({
                 <code>/studio_escalate</code>, <code>/voice</code>, and
                 <code>/escalate</code> with the LiveKit SIP host, SIP
                 credentials, shared handoff token, and whichever routing
-                values your chosen pattern needs.
+                values your chosen pattern needs. The optional Memory variants
+                add <code>/memory_recall</code> and the
+                <code>*_memory</code> endpoints.
               </p>
             </div>
             <div class="card">
@@ -814,6 +845,8 @@ const sipParams = new URLSearchParams({
               <p>
                 Create the inbound trunk from the template, then bind the SIP
                 dispatch rule to the returned <code>ST...</code> trunk ID.
+                Include the optional Memory header mappings if using
+                Conversation Memory.
               </p>
             </div>
             <div class="card">
@@ -840,7 +873,8 @@ const sipParams = new URLSearchParams({
                 Add the handoff tool to the LiveKit agent. Use
                 <code>/studio_escalate</code> for Pattern A, or
                 <code>/escalate</code> for Pattern B and Pattern C style
-                adaptations.
+                adaptations. Use the matching <code>*_memory</code> endpoint
+                when Memory context should be passed onward.
               </p>
             </div>
             <div class="card">

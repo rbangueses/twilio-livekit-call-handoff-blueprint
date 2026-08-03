@@ -91,6 +91,107 @@ test("/studio_voice returns Dial Sip TwiML with parent call headers", async () =
   );
 });
 
+test("/voice_memory passes resolved Memory profile headers to LiveKit", async () => {
+  installTwilioStub();
+  const { handler } = require("../functions/voice_memory");
+  const memoryCalls = [];
+
+  const result = await invoke(handler, {
+    context: {
+      LIVEKIT_PHONE_NUMBER: "+14155550123",
+      LIVEKIT_SIP_HOST: "abc123.sip.livekit.cloud",
+      LIVEKIT_SIP_USERNAME: "lk-user",
+      LIVEKIT_SIP_PASSWORD: "lk-pass",
+      MEMORY_STORE_ID: "mem_store_123",
+      TWILIO_ACCOUNT_SID: "ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      TWILIO_AUTH_TOKEN: "auth-token",
+      fetch: async (url, options) => {
+        memoryCalls.push({ url, options });
+        return jsonResponse(200, { id: "mem_profile_123" });
+      },
+    },
+    event: {
+      CallSid: "CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      From: "+14155550100",
+    },
+  });
+
+  assert.equal(memoryCalls.length, 1);
+  assert.equal(
+    memoryCalls[0].url,
+    "https://memory.twilio.com/v1/Stores/mem_store_123/Profiles",
+  );
+  assert.match(result.toString(), /X-Customer-Phone=%2B14155550100/);
+  assert.match(result.toString(), /X-Memory-Store-Id=mem_store_123/);
+  assert.match(result.toString(), /X-Memory-Profile-Id=mem_profile_123/);
+});
+
+test("/studio_voice_memory still dials LiveKit when Memory lookup is unavailable", async () => {
+  installTwilioStub();
+  const { handler } = require("../functions/studio_voice_memory");
+
+  const result = await withSilencedConsoleError(() =>
+    invoke(handler, {
+      context: {
+        LIVEKIT_PHONE_NUMBER: "+14155550123",
+        LIVEKIT_SIP_HOST: "abc123.sip.livekit.cloud",
+        LIVEKIT_SIP_USERNAME: "lk-user",
+        LIVEKIT_SIP_PASSWORD: "lk-pass",
+        MEMORY_STORE_ID: "mem_store_123",
+        TWILIO_ACCOUNT_SID: "ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        TWILIO_AUTH_TOKEN: "auth-token",
+        fetch: async () => {
+          throw new Error("memory unavailable");
+        },
+      },
+      event: {
+        CallSid: "CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        From: "+14155550100",
+      },
+    }),
+  );
+
+  assert.match(result.toString(), /<Sip/);
+  assert.match(result.toString(), /X-Parent-CallSid=CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/);
+  assert.doesNotMatch(result.toString(), /X-Memory-Profile-Id/);
+});
+
+test("/memory_recall returns observations and summaries for a Memory profile", async () => {
+  installTwilioStub();
+  const { handler } = require("../functions/memory_recall");
+  const memoryCalls = [];
+
+  const result = await invoke(handler, {
+    context: {
+      HANDOFF_TOKEN: "expected-token",
+      TWILIO_ACCOUNT_SID: "ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      TWILIO_AUTH_TOKEN: "auth-token",
+      fetch: async (url, options) => {
+        memoryCalls.push({ url, options });
+        return jsonResponse(200, {
+          observations: [{ content: "Caller prefers email updates.", score: 0.91 }],
+          summaries: [{ content: "Prior account access issue." }],
+        });
+      },
+    },
+    event: {
+      request: { headers: { authorization: "Bearer expected-token" } },
+      memoryStoreId: "mem_store_123",
+      memoryProfileId: "mem_profile_123",
+      query: "account access preferences",
+    },
+  });
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(
+    memoryCalls[0].url,
+    "https://memory.twilio.com/v1/Stores/mem_store_123/Profiles/mem_profile_123/Recall",
+  );
+  assert.equal(result.body.ok, true);
+  assert.equal(result.body.observations[0].content, "Caller prefers email updates.");
+  assert.match(result.body.text, /Caller prefers email updates/);
+});
+
 test("/escalate rejects requests without the bearer token", async () => {
   installTwilioStub();
   const { handler } = require("../functions/escalate");
@@ -150,6 +251,74 @@ test("/escalate updates the parent call with Flex enqueue TwiML", async () => {
   assert.match(updates[0].payload.twiml, /&quot;reason&quot;:&quot;ai_escalation&quot;/);
   assert.match(updates[0].payload.twiml, /&quot;summary&quot;:&quot;Caller needs invoice help\.&quot;/);
   assert.equal(result.body.ok, true);
+});
+
+test("/escalate ignores Memory identifiers on the baseline endpoint", async () => {
+  installTwilioStub();
+  const { handler } = require("../functions/escalate");
+  const updates = [];
+
+  const result = await invoke(handler, {
+    context: {
+      HANDOFF_TOKEN: "expected-token",
+      FLEX_WORKFLOW_SID: "WWaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      getTwilioClient: () => ({
+        calls: (callSid) => ({
+          update: async (payload) => {
+            updates.push({ callSid, payload });
+            return { sid: callSid };
+          },
+        }),
+      }),
+    },
+    event: {
+      request: { headers: { authorization: "Bearer expected-token" } },
+      parentCallSid: "CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      memoryStoreId: "mem_store_123",
+      memoryProfileId: "mem_profile_123",
+      customerPhone: "+14155550100",
+      summary: "Caller needs human help.",
+    },
+  });
+
+  assert.equal(result.statusCode, 200);
+  assert.doesNotMatch(updates[0].payload.twiml, /memoryStoreId/);
+  assert.doesNotMatch(updates[0].payload.twiml, /memoryProfileId/);
+  assert.doesNotMatch(updates[0].payload.twiml, /customerPhone/);
+});
+
+test("/escalate_memory passes Memory identifiers into TaskRouter attributes", async () => {
+  installTwilioStub();
+  const { handler } = require("../functions/escalate_memory");
+  const updates = [];
+
+  const result = await invoke(handler, {
+    context: {
+      HANDOFF_TOKEN: "expected-token",
+      FLEX_WORKFLOW_SID: "WWaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      getTwilioClient: () => ({
+        calls: (callSid) => ({
+          update: async (payload) => {
+            updates.push({ callSid, payload });
+            return { sid: callSid };
+          },
+        }),
+      }),
+    },
+    event: {
+      request: { headers: { authorization: "Bearer expected-token" } },
+      parentCallSid: "CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      memoryStoreId: "mem_store_123",
+      memoryProfileId: "mem_profile_123",
+      customerPhone: "+14155550100",
+      summary: "Caller needs human help.",
+    },
+  });
+
+  assert.equal(result.statusCode, 200);
+  assert.match(updates[0].payload.twiml, /&quot;memoryStoreId&quot;:&quot;mem_store_123&quot;/);
+  assert.match(updates[0].payload.twiml, /&quot;memoryProfileId&quot;:&quot;mem_profile_123&quot;/);
+  assert.match(updates[0].payload.twiml, /&quot;customerPhone&quot;:&quot;\+14155550100&quot;/);
 });
 
 test("/escalate normalizes alternate summary fields into summary and description", async () => {
@@ -266,6 +435,41 @@ test("/studio_escalate updates the parent call with Studio return Redirect TwiML
   assert.match(updates[0].payload.twiml, /summary=Caller\+tried\+a\+sign-in\+code\+and\+still\+needs\+help\./);
   assert.equal(result.body.ok, true);
   assert.equal(result.body.parentCallSid, "CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+});
+
+test("/studio_escalate_memory returns Memory identifiers to Studio", async () => {
+  installTwilioStub();
+  const { handler } = require("../functions/studio_escalate_memory");
+  const updates = [];
+
+  const result = await invoke(handler, {
+    context: {
+      HANDOFF_TOKEN: "expected-token",
+      STUDIO_FLOW_WEBHOOK_URL:
+        "https://webhooks.twilio.com/v1/Accounts/ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/Flows/FWaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      getTwilioClient: () => ({
+        calls: (callSid) => ({
+          update: async (payload) => {
+            updates.push({ callSid, payload });
+            return { sid: callSid };
+          },
+        }),
+      }),
+    },
+    event: {
+      request: { headers: { authorization: "Bearer expected-token" } },
+      parentCallSid: "CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      customerPhone: "+14155550100",
+      memoryStoreId: "mem_store_123",
+      memoryProfileId: "mem_profile_123",
+      summary: "Caller needs human help.",
+    },
+  });
+
+  assert.equal(result.statusCode, 200);
+  assert.match(updates[0].payload.twiml, /customerPhone=%2B14155550100/);
+  assert.match(updates[0].payload.twiml, /memoryStoreId=mem_store_123/);
+  assert.match(updates[0].payload.twiml, /memoryProfileId=mem_profile_123/);
 });
 
 test("/studio_escalate rejects requests without a Studio Flow webhook URL", async () => {
@@ -458,6 +662,20 @@ function escapeXml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
+}
+
+function jsonResponse(status, body) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: status >= 200 && status < 300 ? "OK" : "Error",
+    async json() {
+      return body;
+    },
+    async text() {
+      return JSON.stringify(body);
+    },
+  };
 }
 
 run();

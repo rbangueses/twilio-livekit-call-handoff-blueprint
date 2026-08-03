@@ -79,7 +79,7 @@
         },
         "workflow": "WWxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
         "channel": "TCxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-        "attributes": "{\n  \"type\": \"inbound\",\n  \"name\": \"{{trigger.call.From}}\",\n  \"from\": \"{{trigger.call.From}}\",\n  \"customerAddress\": \"{{trigger.call.From}}\",\n  \"customerName\": \"{{trigger.call.From}}\",\n  \"channelType\": \"voice\",\n  \"direction\": \"{{trigger.call.Direction}}\",\n  \"reason\": \"ai_escalation\",\n  \"intent\": \"{{widgets.redirect_to_livekit.intent}}\",\n  \"summary\": \"{{widgets.redirect_to_livekit.summary}}\",\n  \"description\": \"{{widgets.redirect_to_livekit.description}}\",\n  \"parentCallSid\": \"{{widgets.redirect_to_livekit.parentCallSid}}\",\n  \"handoffId\": \"{{widgets.redirect_to_livekit.handoffId}}\"\n}",
+        "attributes": "{\n  \"type\": \"inbound\",\n  \"name\": \"{{trigger.call.From}}\",\n  \"from\": \"{{trigger.call.From}}\",\n  \"customerAddress\": \"{{trigger.call.From}}\",\n  \"customerName\": \"{{trigger.call.From}}\",\n  \"channelType\": \"voice\",\n  \"direction\": \"{{trigger.call.Direction}}\",\n  \"reason\": \"ai_escalation\",\n  \"intent\": \"{{widgets.redirect_to_livekit.intent}}\",\n  \"summary\": \"{{widgets.redirect_to_livekit.summary}}\",\n  \"description\": \"{{widgets.redirect_to_livekit.description}}\",\n  \"parentCallSid\": \"{{widgets.redirect_to_livekit.parentCallSid}}\",\n  \"handoffId\": \"{{widgets.redirect_to_livekit.handoffId}}\",\n  \"customerPhone\": \"{{widgets.redirect_to_livekit.customerPhone}}\",\n  \"memoryStoreId\": \"{{widgets.redirect_to_livekit.memoryStoreId}}\",\n  \"memoryProfileId\": \"{{widgets.redirect_to_livekit.memoryProfileId}}\"\n}",
         "priority": "0",
         "timeout": "3600"
       }
