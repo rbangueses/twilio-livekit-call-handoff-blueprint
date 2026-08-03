@@ -422,34 +422,20 @@ await fetch(`${HANDOFF_SERVICE_URL}/escalate`, {
 
 ## 6. Optional Conversation Memory
 
-Use Conversation Memory when you want Twilio to maintain customer context across calls while LiveKit remains the real-time voice agent. This is an optional overlay on Pattern A, Pattern B, or Pattern C; the parent-call handoff mechanics from sections 1 through 5 stay the same.
+Use Conversation Memory when you want Twilio to maintain customer context across calls while LiveKit remains the real-time voice agent. This is an optional overlay on Pattern A, Pattern B, or Pattern C; choose the base handoff pattern first, then add Memory.
 
 Before enabling this path, create a Twilio Conversation Memory Store and make sure the store can resolve profiles by phone number. In production, the usual pattern is to link that store to a Conversation Orchestrator configuration so passive call capture can write observations and summaries after conversations complete. You can also write observations, summaries, or traits directly through the Memory API.
 
-The Memory-enhanced flow is:
+Memory adds two separate things:
 
-1. Caller dials your Twilio number.
-2. Twilio invokes `/voice_memory` or `/studio_voice_memory`.
-3. The Function resolves a Memory profile for `event.From` using `MEMORY_STORE_ID`.
-4. The Function dials LiveKit with the normal parent-call headers, `customerPhone`, `memoryStoreId`, and `memoryProfileId` if the profile is found immediately.
-5. The LiveKit agent calls `recall_customer_memory` only if prior context would help the conversation. If `memoryProfileId` was not known at call setup, `/memory_recall` can resolve it from `customerPhone`.
-6. If the agent escalates, `/escalate_memory` passes Memory context into TaskRouter attributes, `/studio_escalate_memory` returns it to Studio so Send to Flex can include it, or a Pattern C handoff endpoint routes the parent call with your chosen TwiML.
+- **Recall while the caller is with LiveKit.** The Memory voice entrypoint passes `customerPhone`, `memoryStoreId`, and sometimes `memoryProfileId` into LiveKit so the agent can call `recall_customer_memory` on demand.
+- **Context on escalation.** The Memory escalation endpoint can pass Memory identifiers and the handoff summary to the next destination. How that context travels depends on Pattern A, B, or C.
 
 The lookup is best-effort. If Memory is not configured or the lookup fails, the Memory voice endpoints still dial LiveKit without Memory headers so the caller is not blocked from reaching the agent.
 
-### 6.1 Memory Function Variants
+### 6.1 Configure Memory Values
 
-The optional Conversation Memory variants are:
-
-- [serverless/functions/studio_voice_memory.js](serverless/functions/studio_voice_memory.js): Pattern A entrypoint with best-effort Memory profile resolution.
-- [serverless/functions/studio_escalate_memory.js](serverless/functions/studio_escalate_memory.js): Pattern A handoff endpoint that returns Memory identifiers to Studio.
-- [serverless/functions/voice_memory.js](serverless/functions/voice_memory.js): Pattern B entrypoint with best-effort Memory profile resolution.
-- [serverless/functions/escalate_memory.js](serverless/functions/escalate_memory.js): Pattern B handoff endpoint that passes Memory identifiers into TaskRouter attributes.
-- [serverless/functions/memory_recall.js](serverless/functions/memory_recall.js): LiveKit agent tool endpoint for recalling relevant Memory context.
-
-For Pattern C with Memory, reuse `/voice_memory` or `/studio_voice_memory` for the LiveKit leg, then adapt the final handoff endpoint to return your chosen TwiML route. If the destination is not TaskRouter or Studio, store or forward the handoff summary and Memory identifiers through whatever context channel that destination can read.
-
-Add the optional Memory values to `serverless/.env`, then redeploy the Twilio Functions:
+Add the Memory values to `serverless/.env`, then redeploy the Twilio Functions:
 
 ```text
 MEMORY_STORE_ID=your_memory_store_id
@@ -469,17 +455,13 @@ https://your-functions-service-1234.twil.io/escalate_memory
 https://your-functions-service-1234.twil.io/memory_recall
 ```
 
-For Pattern A with Memory, update the Studio TwiML Redirect widget URL from `/studio_voice` to `/studio_voice_memory`. In the Send to Flex attributes, you can also include:
+### 6.2 Switch the LiveKit Entrypoint
 
-```json
-{
-  "customerPhone": "{{widgets.redirect_to_livekit.customerPhone}}",
-  "memoryStoreId": "{{widgets.redirect_to_livekit.memoryStoreId}}",
-  "memoryProfileId": "{{widgets.redirect_to_livekit.memoryProfileId}}"
-}
-```
+The Memory entrypoint is the Function that dials LiveKit. It runs before the caller reaches the LiveKit agent and performs best-effort Memory profile resolution.
 
-### 6.2 Memory SIP Headers
+- Pattern A with Memory: update the Studio TwiML Redirect widget URL from `/studio_voice` to `/studio_voice_memory`.
+- Pattern B with Memory: point the Twilio number's voice webhook to `/voice_memory` instead of `/voice`.
+- Pattern C with Memory: use `/voice_memory` if Pattern C starts from the direct Function path, or `/studio_voice_memory` if Pattern C starts from Studio.
 
 The baseline SIP trunk only needs `parentCallSid` and `handoffId`. To let the LiveKit agent recall Memory on demand, update the LiveKit inbound SIP trunk to map these additional headers into participant attributes:
 
@@ -489,18 +471,14 @@ The baseline SIP trunk only needs `parentCallSid` and `handoffId`. To let the Li
 
 If you created the trunk before adding Conversation Memory, update the trunk's `headers_to_attributes` mapping or recreate the trunk from the current [livekit/inbound-trunk.example.json](livekit/inbound-trunk.example.json). The Memory tool needs `customerPhone` and `memoryStoreId`, plus `memoryProfileId` when the profile is found before dialing LiveKit.
 
-### 6.3 Memory Agent Tool
+The initial SIP participant may have `customerPhone` and `memoryStoreId` but no `memoryProfileId`. That is expected when the profile is not resolved before dialing LiveKit. The `/memory_recall` endpoint can resolve the profile on demand from `customerPhone` and `memoryStoreId` when the agent calls the tool.
+
+### 6.3 Add the Memory Agent Tool
 
 For the Python agent, use [examples/livekit_agent_tool_memory.py](examples/livekit_agent_tool_memory.py) as the Memory-enabled model. It includes everything from the baseline handoff example plus:
 
 - `@function_tool()` on `recall_customer_memory`
 - a POST to `/memory_recall` when Memory attributes are present
-
-Set `HANDOFF_ESCALATE_PATH` to the Memory handoff endpoint for the pattern you are testing:
-
-- Pattern A with Memory: `/studio_escalate_memory`
-- Pattern B with Memory: `/escalate_memory`
-- Pattern C with Memory: your custom Memory-aware handoff endpoint
 
 For the Memory-enabled example, add this behavior to the agent instructions:
 
@@ -510,9 +488,29 @@ If prior customer context would help you avoid asking the caller to repeat thems
 
 After changing the agent source, tool definitions, prompt, or `HANDOFF_ESCALATE_PATH`, redeploy or restart the LiveKit agent runtime.
 
-### 6.4 Example: Memory-Enabled Pattern B
+### 6.4 Choose the Memory Escalation Endpoint
 
-Use this example when you want to test the direct TaskRouter path with Conversation Memory enabled. For Pattern A, use the same idea but swap `/voice_memory` for `/studio_voice_memory` and `/escalate_memory` for `/studio_escalate_memory`. For Pattern C, keep the Memory-enabled LiveKit entrypoint and swap the final handoff endpoint for your custom TwiML route.
+The Memory escalation endpoint is the endpoint the LiveKit agent calls when it decides to hand off. Pick it based on the destination pattern:
+
+| Pattern | Set `HANDOFF_ESCALATE_PATH` to | What happens on escalation |
+| --- | --- | --- |
+| Pattern A: Using Studio | `/studio_escalate_memory` | The parent call is redirected back to Studio with the handoff summary and Memory identifiers, so the Studio Flow can pass them to Send to Flex or another widget. |
+| Pattern B: Using TaskRouter | `/escalate_memory` | The parent call is updated with `<Enqueue>`, and TaskRouter task attributes include the handoff summary and Memory identifiers. |
+| Pattern C: Direct TwiML route | Your custom Memory-aware endpoint | The parent call is updated with your chosen TwiML route. If the destination is not Studio or TaskRouter, store or forward the summary and Memory identifiers through a context channel that destination can read. |
+
+For Pattern A with Memory, include the Memory identifiers in the Send to Flex attributes if you want them visible in Flex:
+
+```json
+{
+  "customerPhone": "{{widgets.redirect_to_livekit.customerPhone}}",
+  "memoryStoreId": "{{widgets.redirect_to_livekit.memoryStoreId}}",
+  "memoryProfileId": "{{widgets.redirect_to_livekit.memoryProfileId}}"
+}
+```
+
+### 6.5 Example: Memory-Enabled Pattern B
+
+Use this example when you want to test the direct TaskRouter path with Conversation Memory enabled.
 
 1. Configure passive capture for the Twilio number using a Conversation Orchestrator configuration that writes to your Memory Store.
 2. Add `MEMORY_STORE_ID` to `serverless/.env`, then redeploy the Twilio Functions.
@@ -527,8 +525,6 @@ Use this example when you want to test the direct TaskRouter path with Conversat
 6. Use [examples/livekit_agent_tool_memory.py](examples/livekit_agent_tool_memory.py), or make sure your agent includes the `recall_customer_memory` tool and the instruction to call it only when prior customer context would help.
 7. Redeploy or restart the LiveKit agent runtime.
 8. Call the number once to create a conversation that passive capture can summarize into Memory. After extraction has completed, call again from the same number and describe a related issue.
-
-On the second call, the initial SIP participant may have `customerPhone` and `memoryStoreId` but no `memoryProfileId`. That is expected when the profile is not resolved before dialing LiveKit. The `/memory_recall` endpoint can resolve the profile on demand from `customerPhone` and `memoryStoreId` when the agent calls the tool.
 
 ## 7. How the Patterns Target the Right Call
 
