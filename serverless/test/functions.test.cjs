@@ -91,6 +91,29 @@ test("/studio_voice returns Dial Sip TwiML with parent call headers", async () =
   );
 });
 
+test("/studio_voice loads private helpers through Twilio Runtime function paths", async () => {
+  installTwilioStub();
+  const { handler } = requireWithRuntime("../functions/studio_voice", {
+    "lib/voice": "../functions/lib/voice.private",
+    "lib/memory": "../functions/lib/memory.private",
+  });
+
+  const result = await invoke(handler, {
+    context: {
+      LIVEKIT_PHONE_NUMBER: "+14155550123",
+      LIVEKIT_SIP_HOST: "abc123.sip.livekit.cloud",
+      LIVEKIT_SIP_USERNAME: "lk-user",
+      LIVEKIT_SIP_PASSWORD: "lk-pass",
+    },
+    event: {
+      CallSid: "CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+  });
+
+  assert.match(result.toString(), /<Sip/);
+  assert.match(result.toString(), /X-Parent-CallSid=CAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/);
+});
+
 test("/voice_memory passes resolved Memory profile headers to LiveKit", async () => {
   installTwilioStub();
   const { handler } = require("../functions/voice_memory");
@@ -531,6 +554,33 @@ function invoke(handler, { context, event }) {
       else resolve(result);
     });
   });
+}
+
+function requireWithRuntime(modulePath, runtimeFunctions) {
+  const resolvedModulePath = require.resolve(modulePath);
+  const originalRuntime = global.Runtime;
+  delete require.cache[resolvedModulePath];
+
+  global.Runtime = {
+    getFunctions: () =>
+      Object.fromEntries(
+        Object.entries(runtimeFunctions).map(([functionPath, localPath]) => [
+          functionPath,
+          { path: require.resolve(localPath) },
+        ]),
+      ),
+  };
+
+  try {
+    return require(modulePath);
+  } finally {
+    delete require.cache[resolvedModulePath];
+    if (originalRuntime === undefined) {
+      delete global.Runtime;
+    } else {
+      global.Runtime = originalRuntime;
+    }
+  }
 }
 
 async function withSilencedConsoleError(fn) {
