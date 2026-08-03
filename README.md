@@ -422,7 +422,7 @@ await fetch(`${HANDOFF_SERVICE_URL}/escalate`, {
 
 ## 6. Optional Conversation Memory
 
-Use Conversation Memory when you want Twilio to maintain customer context across calls while LiveKit remains the real-time voice agent. This is an optional overlay on Pattern A or Pattern B; the parent-call handoff mechanics from sections 1 through 5 stay the same.
+Use Conversation Memory when you want Twilio to maintain customer context across calls while LiveKit remains the real-time voice agent. This is an optional overlay on Pattern A, Pattern B, or Pattern C; the parent-call handoff mechanics from sections 1 through 5 stay the same.
 
 Before enabling this path, create a Twilio Conversation Memory Store and make sure the store can resolve profiles by phone number. In production, the usual pattern is to link that store to a Conversation Orchestrator configuration so passive call capture can write observations and summaries after conversations complete. You can also write observations, summaries, or traits directly through the Memory API.
 
@@ -433,7 +433,7 @@ The Memory-enhanced flow is:
 3. The Function resolves a Memory profile for `event.From` using `MEMORY_STORE_ID`.
 4. The Function dials LiveKit with the normal parent-call headers, `customerPhone`, `memoryStoreId`, and `memoryProfileId` if the profile is found immediately.
 5. The LiveKit agent calls `recall_customer_memory` only if prior context would help the conversation. If `memoryProfileId` was not known at call setup, `/memory_recall` can resolve it from `customerPhone`.
-6. If the agent escalates, `/escalate_memory` passes Memory context into TaskRouter attributes, or `/studio_escalate_memory` returns it to Studio so Send to Flex can include it.
+6. If the agent escalates, `/escalate_memory` passes Memory context into TaskRouter attributes, `/studio_escalate_memory` returns it to Studio so Send to Flex can include it, or a Pattern C handoff endpoint routes the parent call with your chosen TwiML.
 
 The lookup is best-effort. If Memory is not configured or the lookup fails, the Memory voice endpoints still dial LiveKit without Memory headers so the caller is not blocked from reaching the agent.
 
@@ -446,6 +446,8 @@ The optional Conversation Memory variants are:
 - [serverless/functions/voice_memory.js](serverless/functions/voice_memory.js): Pattern B entrypoint with best-effort Memory profile resolution.
 - [serverless/functions/escalate_memory.js](serverless/functions/escalate_memory.js): Pattern B handoff endpoint that passes Memory identifiers into TaskRouter attributes.
 - [serverless/functions/memory_recall.js](serverless/functions/memory_recall.js): LiveKit agent tool endpoint for recalling relevant Memory context.
+
+For Pattern C with Memory, reuse `/voice_memory` or `/studio_voice_memory` for the LiveKit leg, then adapt the final handoff endpoint to return your chosen TwiML route. If the destination is not TaskRouter or Studio, store or forward the handoff summary and Memory identifiers through whatever context channel that destination can read.
 
 Add the optional Memory values to `serverless/.env`, then redeploy the Twilio Functions:
 
@@ -498,6 +500,7 @@ Set `HANDOFF_ESCALATE_PATH` to the Memory handoff endpoint for the pattern you a
 
 - Pattern A with Memory: `/studio_escalate_memory`
 - Pattern B with Memory: `/escalate_memory`
+- Pattern C with Memory: your custom Memory-aware handoff endpoint
 
 For the Memory-enabled example, add this behavior to the agent instructions:
 
@@ -509,7 +512,7 @@ After changing the agent source, tool definitions, prompt, or `HANDOFF_ESCALATE_
 
 ### 6.4 Example: Memory-Enabled Pattern B
 
-Use this example when you want to test the direct TaskRouter path with Conversation Memory enabled. For Pattern A, use the same idea but swap `/voice_memory` for `/studio_voice_memory` and `/escalate_memory` for `/studio_escalate_memory`.
+Use this example when you want to test the direct TaskRouter path with Conversation Memory enabled. For Pattern A, use the same idea but swap `/voice_memory` for `/studio_voice_memory` and `/escalate_memory` for `/studio_escalate_memory`. For Pattern C, keep the Memory-enabled LiveKit entrypoint and swap the final handoff endpoint for your custom TwiML route.
 
 1. Configure passive capture for the Twilio number using a Conversation Orchestrator configuration that writes to your Memory Store.
 2. Add `MEMORY_STORE_ID` to `serverless/.env`, then redeploy the Twilio Functions.
