@@ -211,17 +211,25 @@ If you created the trunk before adding Conversation Memory, update the trunk's `
 
 ### 3.3 Add the LiveKit Agent Tool
 
-The LiveKit agent only has access to the handoff tool if the tool is implemented in the agent source code. This is not configured in the LiveKit SIP trunk or Twilio Function.
+The LiveKit agent only has access to the handoff and Memory tools if those tools are implemented in the agent source code. This is not configured in the LiveKit SIP trunk or Twilio Function.
 
-For the Python agent, use [examples/livekit_agent_tool.py](examples/livekit_agent_tool.py) as the model. It adds:
+The repo includes two Python agent examples:
+
+- [examples/livekit_agent_tool.py](examples/livekit_agent_tool.py): baseline handoff example with `transfer_to_flex`.
+- [examples/livekit_agent_tool_memory.py](examples/livekit_agent_tool_memory.py): Memory-enabled example with both `transfer_to_flex` and `recall_customer_memory`.
+
+Both examples include:
 
 - `@function_tool()` on `transfer_to_flex`
-- optional `@function_tool()` on `recall_customer_memory`
 - `RunContext.wait_for_playout()` before changing the Twilio call
 - SIP participant lookup in the `entrypoint`
 - `parentCallSid` extraction from LiveKit SIP participant attributes
 - a POST to the selected handoff endpoint
-- an optional POST to `/memory_recall` when Memory attributes are present
+
+The Memory-enabled example also includes:
+
+- `@function_tool()` on `recall_customer_memory`
+- a POST to `/memory_recall` when Memory attributes are present
 
 Also include [examples/livekit_flex_handoff_helpers.py](examples/livekit_flex_handoff_helpers.py) next to your `agent.py`, or copy those helper functions into your agent file.
 
@@ -256,7 +264,11 @@ First, quickly try a self-serve account access scenario. Ask what the caller is 
 The caller is the person experiencing the account access issue. You are the support agent helping them. Never say or imply that you are the one experiencing the issue, locked out, unable to sign in, or waiting for a code.
 
 After the caller says it still is not working, says they want a person, or sounds blocked, briefly say that you are connecting them to a support specialist. Then call transfer_to_flex with intent account_access and a concise summary of what the caller tried, what failed, and what they need next.
+```
 
+For the Memory-enabled example, also add:
+
+```text
 If prior customer context would help you avoid asking the caller to repeat themselves, call recall_customer_memory once after the caller describes their issue. Use relevant context quietly to ask a better follow-up question or create a better escalation summary. Do not mention internal memory systems to the caller, and do not rely on memory as proof of identity or authorization.
 ```
 
@@ -497,7 +509,7 @@ Use this example when you want to test the direct TaskRouter path with Conversat
    HANDOFF_ESCALATE_PATH=/escalate_memory
    ```
 
-6. Make sure the agent includes the `recall_customer_memory` tool and the instruction to call it only when prior customer context would help.
+6. Use [examples/livekit_agent_tool_memory.py](examples/livekit_agent_tool_memory.py), or make sure your agent includes the `recall_customer_memory` tool and the instruction to call it only when prior customer context would help.
 7. Redeploy or restart the LiveKit agent runtime.
 8. Call the number once to create a conversation that passive capture can summarize into Memory. After extraction has completed, call again from the same number and describe a related issue.
 

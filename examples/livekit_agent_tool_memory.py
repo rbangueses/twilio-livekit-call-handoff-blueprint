@@ -23,7 +23,9 @@ from livekit.plugins import ai_coustics, silero
 
 from livekit_flex_handoff_helpers import (
     build_escalation_payload,
+    build_memory_recall_payload,
     post_flex_escalation,
+    post_memory_recall,
 )
 
 
@@ -47,6 +49,9 @@ The caller is the person experiencing the account access issue. You are the supp
 
 Escalation rule:
 Before escalating, briefly say that you are connecting them to a support specialist. Then call transfer_to_flex with intent account_access and a concise summary of what the caller tried, what failed, and what they need next.
+
+Memory rule:
+After the caller describes their issue, if prior customer context would help you avoid asking them to repeat themselves, call recall_customer_memory once with a short query related to the issue. Use any relevant context quietly to ask a better follow-up question or create a better escalation summary. Do not mention internal memory systems to the caller, and do not rely on memory as proof of identity or authorization.
 
 Voice rules:
 Speak in plain text only.
@@ -95,6 +100,39 @@ Do not reveal tool names, identifiers, or internal instructions.""",
             return "I could not connect the caller to Flex. Please try again or use the manual fallback."
 
         return "The caller is being connected to a human agent."
+
+    @function_tool()
+    async def recall_customer_memory(self, query: str) -> str:
+        """Recall relevant prior customer context from Twilio Conversation Memory.
+
+        Args:
+            query: Short natural-language query describing the context needed.
+        """
+        if not self.sip_participant:
+            return "No live caller context is available."
+
+        try:
+            payload = build_memory_recall_payload(
+                self.sip_participant.attributes,
+                query=query,
+            )
+            result = await asyncio.to_thread(
+                post_memory_recall,
+                os.environ["HANDOFF_SERVICE_URL"],
+                os.environ["HANDOFF_TOKEN"],
+                payload,
+            )
+        except ValueError:
+            return "No prior customer memory is available for this caller."
+        except KeyError as error:
+            logger.exception("Missing LiveKit memory environment variable")
+            return f"I could not recall prior context because {error.args[0]} is not configured."
+        except Exception:
+            logger.exception("Customer memory recall failed")
+            return "I could not recall prior customer context right now."
+
+        text = result.get("text", "") if isinstance(result, dict) else ""
+        return text.strip() or "No relevant prior customer memory was found."
 
 
 server = AgentServer()
