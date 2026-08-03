@@ -246,6 +246,8 @@ If you use the LiveKit CLI config file, create a local copy from the template an
 cp agent/livekit.example.toml agent/livekit.toml
 ```
 
+After changing the agent source, tool definitions, prompt, or `HANDOFF_ESCALATE_PATH`, redeploy or restart the LiveKit agent runtime. Twilio Function and SIP trunk changes do not update an already-running LiveKit agent process.
+
 For the current test flow, add this behavior to the agent instructions:
 
 ```text
@@ -480,6 +482,26 @@ The Memory-enhanced flow is:
 6. If the agent escalates, `/escalate_memory` passes Memory context into TaskRouter attributes, or `/studio_escalate_memory` returns it to Studio so Send to Flex can include it.
 
 The lookup is best-effort. If Memory is not configured or the lookup fails, the Memory voice endpoints still dial LiveKit without Memory headers so the caller is not blocked from reaching the agent.
+
+### 6.1 Example: Memory-Enabled Pattern B
+
+Use this example when you want to test the direct TaskRouter path with Conversation Memory enabled. For Pattern A, use the same idea but swap `/voice_memory` for `/studio_voice_memory` and `/escalate_memory` for `/studio_escalate_memory`.
+
+1. Configure passive capture for the Twilio number using a Conversation Orchestrator configuration that writes to your Memory Store.
+2. Add `MEMORY_STORE_ID` to `serverless/.env`, then redeploy the Twilio Functions.
+3. Point the Twilio number's incoming voice webhook to `/voice_memory`.
+4. Confirm the LiveKit inbound SIP trunk maps `X-Customer-Phone`, `X-Memory-Store-Id`, and `X-Memory-Profile-Id` into participant attributes.
+5. Set the LiveKit agent environment to use the Memory handoff endpoint:
+
+   ```bash
+   HANDOFF_ESCALATE_PATH=/escalate_memory
+   ```
+
+6. Make sure the agent includes the `recall_customer_memory` tool and the instruction to call it only when prior customer context would help.
+7. Redeploy or restart the LiveKit agent runtime.
+8. Call the number once to create a conversation that passive capture can summarize into Memory. After extraction has completed, call again from the same number and describe a related issue.
+
+On the second call, the initial SIP participant may have `customerPhone` and `memoryStoreId` but no `memoryProfileId`. That is expected when the profile is not resolved before dialing LiveKit. The `/memory_recall` endpoint can resolve the profile on demand from `customerPhone` and `memoryStoreId` when the agent calls the tool.
 
 ## 7. How the Patterns Target the Right Call
 
