@@ -16,6 +16,8 @@ Pattern A is the preferred path when you want Studio to remain the routing owner
 
 The key handoff detail is the parent call SID. The Twilio Function that dials LiveKit passes the inbound caller's original Twilio `CallSid` to LiveKit as `parentCallSid` using the `X-Parent-CallSid` SIP header. When the agent escalates, the handoff Function updates that parent call, not the LiveKit SIP child leg.
 
+Optionally, the same setup can resolve a Twilio Conversation Memory profile before dialing LiveKit. In that mode, Twilio passes Memory identifiers to LiveKit as SIP headers, and the LiveKit agent gets a `recall_customer_memory` tool it can call on demand after the caller describes the issue. Section 6 covers this as an optional overlay; sections 1 through 5 stay focused on the baseline handoff.
+
 ## 1. Prerequisites
 
 You need:
