@@ -484,6 +484,8 @@ For the Memory-enabled example, add this behavior to the agent instructions:
 
 ```text
 If prior customer context would help you avoid asking the caller to repeat themselves, call recall_customer_memory once after the caller describes their issue. Use relevant context quietly to ask a better follow-up question or create a better escalation summary. Do not mention internal memory systems to the caller, and do not rely on memory as proof of identity or authorization.
+
+If the caller asks what happened previously, what happened last time, or asks for a summary of a prior conversation, call recall_customer_memory with a query such as previous account access issue or prior conversation summary. Then summarize the relevant prior context in one or two sentences. If no relevant prior context is found, say you do not see previous context for this caller and continue helping normally.
 ```
 
 After changing the agent source, tool definitions, prompt, or `HANDOFF_ESCALATE_PATH`, redeploy or restart the LiveKit agent runtime.
