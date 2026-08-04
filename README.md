@@ -18,6 +18,8 @@ The key handoff detail is the parent call SID. The Twilio Function that dials Li
 
 Optionally, the same setup can resolve a Twilio Conversation Memory profile before dialing LiveKit. In that mode, Twilio passes Memory identifiers to LiveKit as SIP headers, and the LiveKit agent gets a `recall_customer_memory` tool it can call on demand after the caller describes the issue. Section 6 covers this as an optional overlay; sections 1 through 5 stay focused on the baseline handoff.
 
+> **Proof of concept.** This blueprint is intended as a working reference implementation, not a production drop-in. Before using this pattern in production, adapt the routing, authentication, prompts, Memory recall behavior, observability, error handling, security controls, and compliance posture to the specific use case and operating model.
+
 ## 1. Prerequisites
 
 You need:
