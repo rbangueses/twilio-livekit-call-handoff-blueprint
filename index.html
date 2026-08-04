@@ -594,12 +594,10 @@
 
           <div class="callout">
             <p>
-              Conversation Memory is optional and sits on top of Pattern A or
-              Pattern B. Use <code>/studio_voice_memory</code> or
-              <code>/voice_memory</code> to resolve a Memory profile before
-              dialing LiveKit, then let the agent call
-              <code>recall_customer_memory</code> only when prior context would
-              improve the conversation.
+              Conversation Memory is optional and sits on top of Pattern A,
+              Pattern B, or Pattern C. Choose the base handoff pattern first,
+              then add Memory when the agent should recall prior customer
+              context or pass Memory identifiers onward during escalation.
             </p>
           </div>
         </div>
@@ -668,12 +666,105 @@
 
           <div class="callout">
             <p>
-              Optional Memory endpoints keep this flow non-blocking. If Memory
-              is configured, Twilio passes <code>customerPhone</code> and
-              <code>memoryStoreId</code> to LiveKit as SIP participant
-              attributes, plus <code>memoryProfileId</code> when the profile
-              is found before dialing. If Memory lookup fails, the caller still
-              reaches the LiveKit agent through the normal parent-call handoff.
+              Optional Memory keeps the same parent-call handoff. The Memory
+              entrypoint gets context into LiveKit for recall, while the
+              Memory-aware escalation endpoint decides how that context reaches
+              Studio, TaskRouter, or a custom TwiML destination.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="memory">
+        <div class="shell">
+          <p class="section-kicker">Optional Conversation Memory</p>
+          <h2>Add customer memory after choosing the handoff pattern</h2>
+          <p class="section-lede">
+            Memory is an overlay on the baseline call handoff. It adds recall
+            while the caller is with LiveKit, and it can pass Memory identifiers
+            to the next destination when the agent escalates.
+          </p>
+
+          <div class="grid two">
+            <div class="card">
+              <h3>1. Configure Memory values</h3>
+              <p>
+                Add <code>MEMORY_STORE_ID</code> and Twilio credentials to the
+                Function environment, then redeploy. The Memory Functions add
+                <code>/voice_memory</code>, <code>/studio_voice_memory</code>,
+                <code>/escalate_memory</code>,
+                <code>/studio_escalate_memory</code>, and
+                <code>/memory_recall</code>.
+              </p>
+            </div>
+            <div class="card">
+              <h3>2. Switch the LiveKit entrypoint</h3>
+              <p>
+                Pattern A swaps the Studio TwiML Redirect URL from
+                <code>/studio_voice</code> to
+                <code>/studio_voice_memory</code>. Pattern B points the Twilio
+                number to <code>/voice_memory</code>. Pattern C uses whichever
+                Memory entrypoint matches its base route.
+              </p>
+            </div>
+            <div class="card">
+              <h3>3. Add the Memory agent tool</h3>
+              <p>
+                Use <code>examples/livekit_agent_tool_memory.py</code> when
+                the agent should expose <code>recall_customer_memory</code>.
+                The tool calls <code>/memory_recall</code> only when prior
+                context would help the conversation.
+              </p>
+            </div>
+            <div class="card">
+              <h3>4. Map the Memory SIP headers</h3>
+              <p>
+                Add <code>X-Customer-Phone</code>,
+                <code>X-Memory-Store-Id</code>, and
+                <code>X-Memory-Profile-Id</code> to the LiveKit trunk's
+                header-to-attribute mapping. If the profile is not found before
+                dialing, <code>/memory_recall</code> can resolve it later from
+                the caller phone and Memory Store ID.
+              </p>
+            </div>
+          </div>
+
+          <div class="grid three">
+            <div class="card">
+              <span class="badge">Pattern A</span>
+              <h3><code>/studio_escalate_memory</code></h3>
+              <p>
+                Redirects the parent call back to Studio with the summary and
+                Memory identifiers, so Send to Flex or another widget can use
+                them.
+              </p>
+            </div>
+            <div class="card">
+              <span class="badge blue">Pattern B</span>
+              <h3><code>/escalate_memory</code></h3>
+              <p>
+                Updates the parent call with <code>&lt;Enqueue&gt;</code> and
+                includes the summary and Memory identifiers in TaskRouter task
+                attributes.
+              </p>
+            </div>
+            <div class="card">
+              <span class="badge teal">Pattern C</span>
+              <h3>Custom endpoint</h3>
+              <p>
+                Updates the parent call with your chosen TwiML. If the
+                destination is not Studio or TaskRouter, store or forward the
+                summary and Memory identifiers through a context channel that
+                destination can read.
+              </p>
+            </div>
+          </div>
+
+          <div class="callout">
+            <p>
+              Memory lookup is best-effort. If the lookup fails or the profile
+              is not available before dialing LiveKit, the caller still reaches
+              the agent through the normal parent-call handoff.
             </p>
           </div>
         </div>
@@ -710,7 +801,8 @@
                 <td>
                   Create the SIP dial leg to LiveKit, then either return the
                   parent call to Studio, enqueue it into Flex, or adapt the
-                  update to another TwiML route.
+                  update to another TwiML route. Memory variants add the recall
+                  endpoint and Memory-aware entry/escalation paths.
                 </td>
               </tr>
               <tr>
@@ -740,10 +832,14 @@
               </tr>
               <tr>
                 <td>Examples and tests</td>
-                <td><code>examples/</code><br /><code>serverless/test/</code></td>
                 <td>
-                  Provide portable Python and TypeScript handoff examples plus
-                  tests for the Twilio Function handlers.
+                  <code>examples/livekit_agent_tool.py</code><br />
+                  <code>examples/livekit_agent_tool_memory.py</code><br />
+                  <code>serverless/test/</code>
+                </td>
+                <td>
+                  Provide separate baseline and Memory-enabled LiveKit examples
+                  plus tests for the Twilio Function handlers.
                 </td>
               </tr>
             </tbody>
@@ -803,7 +899,8 @@ const sipParams = new URLSearchParams({
             The escalation Function serializes handoff context into the
             TaskRouter task. Flex can read these attributes from the active
             reservation or task, and another TaskRouter-powered agent
-            experience can consume the same attributes.
+            experience can consume the same attributes. Memory fields are
+            optional additions.
           </p>
 
           <pre><code>{
@@ -815,7 +912,19 @@ const sipParams = new URLSearchParams({
   "handoffId": "CA...",
   "intent": "account_access",
   "summary": "Caller tried a new sign-in code and still needs help.",
-  "description": "Caller tried a new sign-in code and still needs help.",
+  "description": "Caller tried a new sign-in code and still needs help."
+}</code></pre>
+
+          <div class="callout">
+            <p>
+              With Conversation Memory enabled, add optional attributes such as
+              <code>customerPhone</code>, <code>memoryStoreId</code>, and
+              <code>memoryProfileId</code> so Flex or another TaskRouter
+              consumer can display or use the context.
+            </p>
+          </div>
+
+          <pre><code>{
   "customerPhone": "+15551234567",
   "memoryStoreId": "mem_store_...",
   "memoryProfileId": "mem_profile_..."
@@ -835,9 +944,8 @@ const sipParams = new URLSearchParams({
                 <code>/studio_escalate</code>, <code>/voice</code>, and
                 <code>/escalate</code> with the LiveKit SIP host, SIP
                 credentials, shared handoff token, and whichever routing
-                values your chosen pattern needs. The optional Memory variants
-                add <code>/memory_recall</code> and the
-                <code>*_memory</code> endpoints.
+                values your chosen pattern needs. Add the Memory endpoints only
+                when enabling the optional Memory overlay.
               </p>
             </div>
             <div class="card">
@@ -845,8 +953,9 @@ const sipParams = new URLSearchParams({
               <p>
                 Create the inbound trunk from the template, then bind the SIP
                 dispatch rule to the returned <code>ST...</code> trunk ID.
-                Include the optional Memory header mappings if using
-                Conversation Memory.
+                The baseline mapping needs <code>parentCallSid</code> and
+                <code>handoffId</code>; Memory adds customer and profile
+                attributes.
               </p>
             </div>
             <div class="card">
@@ -873,8 +982,8 @@ const sipParams = new URLSearchParams({
                 Add the handoff tool to the LiveKit agent. Use
                 <code>/studio_escalate</code> for Pattern A, or
                 <code>/escalate</code> for Pattern B and Pattern C style
-                adaptations. Use the matching <code>*_memory</code> endpoint
-                when Memory context should be passed onward.
+                adaptations. For Memory, use the Memory-enabled agent example
+                and choose the Memory escalation endpoint for the destination.
               </p>
             </div>
             <div class="card">
