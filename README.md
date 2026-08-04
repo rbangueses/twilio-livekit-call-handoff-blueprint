@@ -503,7 +503,7 @@ For the Python agent, use [examples/livekit_agent_tool_memory.py](examples/livek
 - `@function_tool()` on `recall_customer_memory`
 - a POST to `/memory_recall` when Memory attributes are present
 
-For the Memory-enabled example, add this behavior to the agent instructions:
+For testing and demos, add behavior like this to the agent instructions so you can confirm the agent is accessing Memory successfully. In production, tune the trigger conditions and wording for your support flow:
 
 ```text
 If prior customer context would help you avoid asking the caller to repeat themselves, call recall_customer_memory once after the caller describes their issue. Use relevant context quietly to ask a better follow-up question or create a better escalation summary. Do not mention internal memory systems to the caller, and do not rely on memory as proof of identity or authorization.
