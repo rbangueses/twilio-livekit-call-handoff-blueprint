@@ -453,6 +453,7 @@ https://your-functions-service-1234.twil.io/studio_escalate_memory
 https://your-functions-service-1234.twil.io/voice_memory
 https://your-functions-service-1234.twil.io/escalate_memory
 https://your-functions-service-1234.twil.io/memory_recall
+https://your-functions-service-1234.twil.io/memory_debug
 ```
 
 ### 6.2 Switch the LiveKit Entrypoint
@@ -473,7 +474,29 @@ If you created the trunk before adding Conversation Memory, update the trunk's `
 
 The initial SIP participant may have `customerPhone` and `memoryStoreId` but no `memoryProfileId`. That is expected when the profile is not resolved before dialing LiveKit. The `/memory_recall` endpoint can resolve the profile on demand from `customerPhone` and `memoryStoreId` when the agent calls the tool.
 
-### 6.3 Add the Memory Agent Tool
+### 6.3 Verify Memory Lookup
+
+Use the protected `/memory_debug` endpoint when the agent says it cannot find previous context. It checks the same deployed Twilio Function context used by `/voice_memory` and `/memory_recall`.
+
+Send a POST with the same bearer token used by the LiveKit tools:
+
+```json
+{
+  "customerPhone": "+15551234567",
+  "configurationId": "conv_configuration_xxx"
+}
+```
+
+The useful fields are:
+
+- `memoryStore.body.status`: should be `ACTIVE`.
+- `profileLookup.profileFound`: should be `true` after passive capture or direct Memory writes have created a profile for the caller.
+- `orchestratorConfig.memoryStoreMatches`: should be `true` when the Conversation Orchestrator configuration is linked to the same Memory Store.
+- `orchestratorConfig.memoryExtractionEnabled`: should be `true` if you expect summaries and observations to be written automatically after calls.
+
+If `profileLookup.profileFound` is `true` but `/memory_recall` returns no useful observations, wait for the voice conversation to become inactive or closed, then retry. Memory extraction and indexing are asynchronous.
+
+### 6.4 Add the Memory Agent Tool
 
 For the Python agent, use [examples/livekit_agent_tool_memory.py](examples/livekit_agent_tool_memory.py) as the Memory-enabled model. It includes everything from the baseline handoff example plus:
 
@@ -490,7 +513,7 @@ If the caller asks what happened previously, what happened last time, or asks fo
 
 After changing the agent source, tool definitions, prompt, or `HANDOFF_ESCALATE_PATH`, redeploy or restart the LiveKit agent runtime.
 
-### 6.4 Choose the Memory Escalation Endpoint
+### 6.5 Choose the Memory Escalation Endpoint
 
 The Memory escalation endpoint is the endpoint the LiveKit agent calls when it decides to hand off. Pick it based on the destination pattern:
 
@@ -510,7 +533,7 @@ For Pattern A with Memory, include the Memory identifiers in the Send to Flex at
 }
 ```
 
-### 6.5 Example: Memory-Enabled Pattern B
+### 6.6 Example: Memory-Enabled Pattern B
 
 Use this example when you want to test the direct TaskRouter path with Conversation Memory enabled.
 

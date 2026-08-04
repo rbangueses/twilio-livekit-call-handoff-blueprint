@@ -17,11 +17,7 @@ async function resolveMemoryProfile(context, phoneNumber) {
     },
   );
 
-  const memoryProfileId =
-    response.id ||
-    response.profile?.id ||
-    response.profiles?.[0]?.id ||
-    null;
+  const memoryProfileId = extractMemoryProfileId(response);
 
   return {
     memoryStoreId: context.MEMORY_STORE_ID,
@@ -124,3 +120,26 @@ module.exports = {
   resolveMemoryProfile,
   recallMemoryProfile,
 };
+
+function extractMemoryProfileId(response) {
+  const firstProfile = response?.profiles?.[0];
+
+  return (
+    response?.id ||
+    response?.profileId ||
+    response?.profile_id ||
+    response?.profile?.id ||
+    response?.profile?.profileId ||
+    response?.profile?.profile_id ||
+    profileIdFromProfile(firstProfile) ||
+    null
+  );
+}
+
+function profileIdFromProfile(profile) {
+  if (typeof profile === "string") {
+    return profile;
+  }
+
+  return profile?.id || profile?.profileId || profile?.profile_id || profile?.sid || null;
+}

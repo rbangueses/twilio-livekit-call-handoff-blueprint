@@ -287,6 +287,117 @@ test("/memory_recall can resolve the Memory profile by caller phone", async () =
   assert.match(result.body.text, /login trouble/);
 });
 
+test("/memory_recall can resolve a string profile id from Lookup", async () => {
+  installTwilioStub();
+  const { handler } = require("../functions/memory_recall");
+  const memoryCalls = [];
+
+  const result = await invoke(handler, {
+    context: {
+      HANDOFF_TOKEN: "expected-token",
+      TWILIO_ACCOUNT_SID: "ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      TWILIO_AUTH_TOKEN: "auth-token",
+      fetch: async (url, options) => {
+        memoryCalls.push({ url, options });
+        if (url.endsWith("/Profiles/Lookup")) {
+          return jsonResponse(200, { profiles: ["mem_profile_123"] });
+        }
+        return jsonResponse(200, {
+          observations: [{ content: "Caller previously had login trouble." }],
+          summaries: [],
+        });
+      },
+    },
+    event: {
+      request: { headers: { authorization: "Bearer expected-token" } },
+      memoryStoreId: "mem_store_123",
+      customerPhone: "+14155550100",
+      query: "account access",
+    },
+  });
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(memoryCalls.length, 2);
+  assert.equal(
+    memoryCalls[1].url,
+    "https://memory.twilio.com/v1/Stores/mem_store_123/Profiles/mem_profile_123/Recall",
+  );
+  assert.match(result.body.text, /login trouble/);
+});
+
+test("/memory_debug rejects requests without the bearer token", async () => {
+  installTwilioStub();
+  const { handler } = require("../functions/memory_debug");
+
+  const result = await invoke(handler, {
+    context: {
+      HANDOFF_TOKEN: "expected-token",
+      fetch: async () => {
+        throw new Error("fetch should not be called");
+      },
+    },
+    event: {
+      request: { headers: { authorization: "Bearer wrong-token" } },
+    },
+  });
+
+  assert.equal(result.statusCode, 401);
+  assert.deepEqual(result.body, { error: "unauthorized" });
+});
+
+test("/memory_debug reports Memory profile lookup and Orchestrator linkage", async () => {
+  installTwilioStub();
+  const { handler } = require("../functions/memory_debug");
+  const calls = [];
+
+  const result = await invoke(handler, {
+    context: {
+      HANDOFF_TOKEN: "expected-token",
+      MEMORY_STORE_ID: "mem_store_123",
+      TWILIO_ACCOUNT_SID: "ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      TWILIO_AUTH_TOKEN: "auth-token",
+      fetch: async (url, options) => {
+        calls.push({ url, options });
+        if (url.includes("/ControlPlane/Stores/")) {
+          return jsonResponse(200, {
+            id: "mem_store_123",
+            status: "ACTIVE",
+            displayName: "Demo",
+            links: { self: "https://example.com" },
+          });
+        }
+        if (url.endsWith("/Profiles/Lookup")) {
+          return jsonResponse(200, {
+            profiles: [{ id: "mem_profile_123", traits: { contact: { phone: "+14155550100" } } }],
+          });
+        }
+        return jsonResponse(200, {
+          id: "conv_configuration_123",
+          displayName: "Demo config",
+          memoryStoreId: "mem_store_123",
+          memoryExtractionEnabled: true,
+          channelSettings: { VOICE: { captureRules: [{ from: "*", to: "+14155550123" }] } },
+          links: { self: "https://example.com" },
+        });
+      },
+    },
+    event: {
+      request: { headers: { authorization: "Bearer expected-token" } },
+      customerPhone: "+14155550100",
+      configurationId: "conv_configuration_123",
+    },
+  });
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(calls.length, 3);
+  assert.equal(result.body.memoryStore.statusCode, 200);
+  assert.equal(result.body.profileLookup.profileFound, true);
+  assert.equal(result.body.profileLookup.profileId, "mem_profile_123");
+  assert.equal(result.body.orchestratorConfig.memoryStoreMatches, true);
+  assert.equal(result.body.orchestratorConfig.memoryExtractionEnabled, true);
+  assert.equal(result.body.memoryStore.body.links, undefined);
+});
+
 test("/escalate rejects requests without the bearer token", async () => {
   installTwilioStub();
   const { handler } = require("../functions/escalate");

@@ -694,7 +694,8 @@
                 <code>/voice_memory</code>, <code>/studio_voice_memory</code>,
                 <code>/escalate_memory</code>,
                 <code>/studio_escalate_memory</code>, and
-                <code>/memory_recall</code>.
+                <code>/memory_recall</code>. Use
+                <code>/memory_debug</code> for protected live diagnostics.
               </p>
             </div>
             <div class="card">
@@ -725,6 +726,16 @@
                 header-to-attribute mapping. If the profile is not found before
                 dialing, <code>/memory_recall</code> can resolve it later from
                 the caller phone and Memory Store ID.
+              </p>
+            </div>
+            <div class="card span-two">
+              <h3>5. Verify the lookup path</h3>
+              <p>
+                If the agent cannot find prior context, POST to
+                <code>/memory_debug</code> with <code>customerPhone</code> and
+                the optional Conversation Orchestrator configuration ID. Check
+                that the store is active, the profile is found, the config uses
+                the same store, and Memory extraction is enabled.
               </p>
             </div>
           </div>
