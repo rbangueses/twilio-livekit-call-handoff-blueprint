@@ -218,6 +218,8 @@ cp agent/livekit.example.toml agent/livekit.toml
 
 After changing the agent source, tool definitions, prompt, or `HANDOFF_ESCALATE_PATH`, redeploy or restart the LiveKit agent runtime. Twilio Function and SIP trunk changes do not update an already-running LiveKit agent process.
 
+The bundled [agent/agent.py](agent/agent.py) supports both baseline and Memory tests in one runtime. Calls that enter through `/voice` or `/studio_voice` do not receive Memory SIP headers, so the runtime starts the baseline agent with only the escalation tool. Calls that enter through `/voice_memory` or `/studio_voice_memory` include Memory headers, so the runtime starts the Memory-enabled agent with `recall_customer_memory`.
+
 For the current test flow, add this behavior to the agent instructions:
 
 ```text

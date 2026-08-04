@@ -23,6 +23,13 @@ class LiveKitAgentExamplesTest(unittest.TestCase):
         self.assertIn("post_memory_recall", source)
         self.assertIn("Memory rule:", source)
 
+    def test_runtime_agent_selects_memory_agent_only_with_memory_attributes(self):
+        source = (ROOT_DIR / "agent" / "agent.py").read_text()
+
+        self.assertIn("class MemoryAgent(HandoffAgent):", source)
+        self.assertIn("def has_memory_attributes", source)
+        self.assertIn("MemoryAgent if has_memory_attributes(sip_participant) else DefaultAgent", source)
+
     def test_memory_prompts_handle_explicit_prior_context_requests(self):
         paths = (
             EXAMPLES_DIR / "livekit_agent_tool_memory.py",
