@@ -439,11 +439,15 @@ Add the Memory values to `serverless/.env`, then redeploy the Twilio Functions:
 
 ```text
 MEMORY_STORE_ID=your_memory_store_id
+MEMORY_RECALL_LOOKBACK_DAYS=30
+MEMORY_RECALL_RELEVANCE_THRESHOLD=0.5
 TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TWILIO_AUTH_TOKEN=your_auth_token
 ```
 
 `MEMORY_STORE_ID` is required for `/voice_memory`, `/studio_voice_memory`, and `/memory_recall`. In deployed Twilio Functions, the account SID and auth token are usually available as `ACCOUNT_SID` and `AUTH_TOKEN`, but setting `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` explicitly is useful for local tests or runtimes that do not expose the defaults.
+
+`MEMORY_RECALL_LOOKBACK_DAYS` and `MEMORY_RECALL_RELEVANCE_THRESHOLD` are optional but useful for demos or shared test numbers. Without a lookback window, semantic Recall can surface old but loosely related memories from the same caller profile. For the ACME test flow, a thirty-day lookback and a relevance threshold around `0.5` keep recall focused on recent support context.
 
 After redeploying, the Function Service also exposes:
 
@@ -506,9 +510,9 @@ For the Python agent, use [examples/livekit_agent_tool_memory.py](examples/livek
 For testing and demos, add behavior like this to the agent instructions so you can confirm the agent is accessing Memory successfully. In production, tune the trigger conditions and wording for your support flow:
 
 ```text
-If prior customer context would help you avoid asking the caller to repeat themselves, call recall_customer_memory once after the caller describes their issue. Use relevant context quietly to ask a better follow-up question or create a better escalation summary. Do not mention internal memory systems to the caller, and do not rely on memory as proof of identity or authorization.
+If prior customer context would help you avoid asking the caller to repeat themselves, call recall_customer_memory once after the caller describes their issue with a short query for recent, issue-related support context. Use relevant context quietly to ask a better follow-up question or create a better escalation summary. Ignore unrelated or stale memories. Do not mention internal memory systems to the caller, and do not rely on memory as proof of identity or authorization.
 
-If the caller asks what happened previously, what happened last time, or asks for a summary of a prior conversation, call recall_customer_memory with a query such as previous account access issue or prior conversation summary. Then summarize the relevant prior context in one or two sentences. If no relevant prior context is found, say you do not see previous context for this caller and continue helping normally.
+If the caller asks what happened previously, what happened last time, or asks for a summary of a prior conversation, call recall_customer_memory with a query such as recent account access support context or recent account access conversation summary. Then summarize the relevant prior context in one or two sentences. Ignore unrelated or stale memories, even if they are returned. If no relevant prior context is found, say you do not see relevant previous context for this caller and continue helping normally.
 ```
 
 After changing the agent source, tool definitions, prompt, or `HANDOFF_ESCALATE_PATH`, redeploy or restart the LiveKit agent runtime.

@@ -35,6 +35,9 @@ async function recallMemoryProfile(
     customerPhone,
     observationsLimit = 5,
     summariesLimit = 3,
+    relevanceThreshold,
+    beginDate,
+    endDate,
   },
 ) {
   if (isBlank(memoryStoreId)) {
@@ -62,6 +65,9 @@ async function recallMemoryProfile(
         query: isBlank(query) ? undefined : query,
         observationsLimit,
         summariesLimit,
+        relevanceThreshold,
+        beginDate,
+        endDate,
       }),
     },
   );

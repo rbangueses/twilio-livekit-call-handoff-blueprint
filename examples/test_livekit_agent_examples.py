@@ -36,6 +36,19 @@ class LiveKitAgentExamplesTest(unittest.TestCase):
                 self.assertIn("what happened previously", source)
                 self.assertIn("summarize the relevant prior context", source)
 
+    def test_memory_prompts_filter_stale_or_unrelated_context(self):
+        paths = (
+            EXAMPLES_DIR / "livekit_agent_tool_memory.py",
+            ROOT_DIR / "agent" / "agent.py",
+        )
+
+        for path in paths:
+            with self.subTest(path=path):
+                source = path.read_text()
+
+                self.assertIn("recent, issue-related", source)
+                self.assertIn("Ignore unrelated or stale memories", source)
+
 
 if __name__ == "__main__":
     unittest.main()

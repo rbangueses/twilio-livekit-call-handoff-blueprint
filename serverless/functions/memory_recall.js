@@ -24,6 +24,14 @@ exports.handler = async function (context, event, callback) {
       query: payload.query,
       observationsLimit: Number(payload.observationsLimit) || 5,
       summariesLimit: Number(payload.summariesLimit) || 3,
+      relevanceThreshold: numberValue(
+        payload.relevanceThreshold,
+        context.MEMORY_RECALL_RELEVANCE_THRESHOLD,
+      ),
+      beginDate:
+        textValue(payload.beginDate) ||
+        beginDateFromLookbackDays(context.MEMORY_RECALL_LOOKBACK_DAYS),
+      endDate: textValue(payload.endDate),
     });
 
     response.setBody({
@@ -66,6 +74,30 @@ function formatRecallText(recall) {
     .filter(Boolean);
 
   return [...observationLines, ...summaryLines].join("\n");
+}
+
+function numberValue(...values) {
+  for (const value of values) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return undefined;
+}
+
+function textValue(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function beginDateFromLookbackDays(value) {
+  const lookbackDays = Number(value);
+  if (!Number.isFinite(lookbackDays) || lookbackDays <= 0) {
+    return undefined;
+  }
+
+  return new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString();
 }
 
 function requireFunction(functionPath, localPath) {

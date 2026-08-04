@@ -9,7 +9,7 @@ export class InboundAgent extends voice.Agent {
   constructor() {
     super({
       instructions:
-        "You are a helpful phone support agent. After the caller describes their issue, if prior context would help, call recallCustomerMemory once with a short query. If you cannot solve the issue, confirm the caller wants a human and then call transferToFlex.",
+        "You are a helpful phone support agent. After the caller describes their issue, if prior context would help, call recallCustomerMemory once with a short query for recent, issue-related support context. Ignore unrelated or stale memories. If you cannot solve the issue, confirm the caller wants a human and then call transferToFlex.",
       tools: {
         recallCustomerMemory: llm.tool({
           description: "Recall relevant prior customer context from Twilio Conversation Memory.",
@@ -32,8 +32,11 @@ export class InboundAgent extends voice.Agent {
             const memoryProfileId =
               sipParticipant.attributes.memoryProfileId ||
               sipParticipant.attributes["sip.h.X-Memory-Profile-Id"];
+            const customerPhone =
+              sipParticipant.attributes.customerPhone ||
+              sipParticipant.attributes["sip.h.X-Customer-Phone"];
 
-            if (!memoryStoreId || !memoryProfileId) {
+            if (!memoryStoreId || (!memoryProfileId && !customerPhone)) {
               return "No prior customer memory is available for this caller.";
             }
 
@@ -46,9 +49,7 @@ export class InboundAgent extends voice.Agent {
               body: JSON.stringify({
                 memoryStoreId,
                 memoryProfileId,
-                customerPhone:
-                  sipParticipant.attributes.customerPhone ||
-                  sipParticipant.attributes["sip.h.X-Customer-Phone"],
+                customerPhone,
                 query,
               }),
             });

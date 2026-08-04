@@ -245,6 +245,44 @@ test("/memory_recall returns observations and summaries for a Memory profile", a
   assert.match(result.body.text, /Caller prefers email updates/);
 });
 
+test("/memory_recall applies configured recency and relevance guardrails", async () => {
+  installTwilioStub();
+  const { handler } = require("../functions/memory_recall");
+  const memoryCalls = [];
+
+  const result = await invoke(handler, {
+    context: {
+      HANDOFF_TOKEN: "expected-token",
+      TWILIO_ACCOUNT_SID: "ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      TWILIO_AUTH_TOKEN: "auth-token",
+      MEMORY_RECALL_LOOKBACK_DAYS: "14",
+      MEMORY_RECALL_RELEVANCE_THRESHOLD: "0.5",
+      fetch: async (url, options) => {
+        memoryCalls.push({ url, options });
+        return jsonResponse(200, {
+          observations: [{ content: "Recent relevant account access issue.", score: 0.91 }],
+          summaries: [],
+        });
+      },
+    },
+    event: {
+      request: { headers: { authorization: "Bearer expected-token" } },
+      memoryStoreId: "mem_store_123",
+      memoryProfileId: "mem_profile_123",
+      query: "recent account access support context",
+    },
+  });
+
+  assert.equal(result.statusCode, 200);
+  const recallBody = JSON.parse(memoryCalls[0].options.body);
+  const beginDate = new Date(recallBody.beginDate);
+  const lookbackMs = Date.now() - beginDate.getTime();
+
+  assert.equal(recallBody.relevanceThreshold, 0.5);
+  assert.ok(lookbackMs > 13.9 * 24 * 60 * 60 * 1000);
+  assert.ok(lookbackMs < 14.1 * 24 * 60 * 60 * 1000);
+});
+
 test("/memory_recall can resolve the Memory profile by caller phone", async () => {
   installTwilioStub();
   const { handler } = require("../functions/memory_recall");
