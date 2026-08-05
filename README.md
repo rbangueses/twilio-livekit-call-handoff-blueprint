@@ -77,7 +77,7 @@ LIVEKIT_SIP_HOST=abcd.sip.livekit.cloud
 Choose these secrets yourself:
 
 - `LIVEKIT_SIP_USERNAME` and `LIVEKIT_SIP_PASSWORD`: shared by Twilio `<Sip>` and the LiveKit inbound SIP trunk.
-- `HANDOFF_TOKEN`: shared by the LiveKit agent and the Twilio `/escalate` and `/studio_escalate` Functions.
+- `HANDOFF_TOKEN`: shared by the LiveKit agent and the protected Twilio Functions it calls, including `/escalate`, `/studio_escalate`, `/escalate_memory`, `/studio_escalate_memory`, `/memory_recall`, and `/memory_debug`.
 
 As an example, you can generate strong values with:
 
@@ -643,7 +643,7 @@ For Pattern A:
 2. Call the Twilio number.
 3. Confirm Studio enters the `redirect_to_livekit` TwiML Redirect widget.
 4. Confirm the call lands in a LiveKit room with `parentCallSid` and `handoffId` participant attributes.
-5. Trigger the LiveKit `transferToFlex` tool.
+5. Trigger the LiveKit `transfer_to_flex` tool.
 6. Confirm Studio resumes through the TwiML Redirect widget's `return` transition.
 7. Confirm Send to Flex creates a voice task with `reason=ai_escalation` and the handoff summary in task attributes.
 
@@ -652,7 +652,7 @@ For Pattern B:
 1. Point the Twilio number to the `/voice` Function URL.
 2. Call the Twilio number.
 3. Confirm the call lands in a LiveKit room with `parentCallSid` and `handoffId` participant attributes.
-4. Trigger the LiveKit `transferToFlex` tool.
+4. Trigger the LiveKit `transfer_to_flex` tool.
 5. Confirm a new Flex voice task appears with `reason=ai_escalation` and the handoff summary in task attributes.
 
 For Pattern C:
@@ -704,4 +704,10 @@ The Python helper tests cover parent-call escalation payloads, optional Memory r
 
 ```bash
 python3 examples/test_livekit_flex_handoff_helpers.py
+```
+
+The agent example tests cover the baseline example, the Memory-enabled example, and the bundled runtime's baseline-versus-Memory agent selection:
+
+```bash
+python3 examples/test_livekit_agent_examples.py
 ```

@@ -446,10 +446,10 @@
           <div class="eyebrow">Reference Blueprint</div>
           <h1>Twilio LiveKit Call Handoff</h1>
           <p class="hero-copy">
-            A production-shaped pattern for giving a LiveKit voice agent a
-            clean escape hatch back to Twilio routing, without losing the live
-            caller, the context gathered by the AI, or optional Twilio
-            Conversation Memory context.
+            A working reference pattern for giving a LiveKit voice agent a clean
+            escape hatch back to Twilio routing, without losing the live caller,
+            the context gathered by the AI, or optional Twilio Conversation
+            Memory context.
           </p>
           <div class="hero-actions">
             <a class="button primary" href="#flow">View Call Flow</a>
@@ -563,6 +563,16 @@
             </p>
           </div>
 
+          <div class="callout">
+            <p>
+              This is a proof-of-concept reference implementation, not a
+              production drop-in. Adapt the routing, authentication, prompts,
+              Memory recall behavior, observability, error handling, security
+              controls, and compliance posture to the specific use case before
+              putting the pattern into production.
+            </p>
+          </div>
+
           <div class="grid three overview-patterns">
             <div class="card">
               <span class="badge">Pattern A</span>
@@ -594,12 +604,10 @@
 
           <div class="callout">
             <p>
-              Conversation Memory is optional and sits on top of Pattern A or
-              Pattern B. Use <code>/studio_voice_memory</code> or
-              <code>/voice_memory</code> to resolve a Memory profile before
-              dialing LiveKit, then let the agent call
-              <code>recall_customer_memory</code> only when prior context would
-              improve the conversation.
+              Conversation Memory is optional and sits on top of Pattern A,
+              Pattern B, or Pattern C. Choose the base handoff pattern first,
+              then add Memory when the agent should recall prior customer
+              context or pass Memory identifiers onward during escalation.
             </p>
           </div>
         </div>
