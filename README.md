@@ -20,6 +20,22 @@ Optionally, the same setup can resolve a Twilio Conversation Memory profile befo
 
 > **Proof of concept.** This blueprint is intended as a working reference implementation, not a production drop-in. Before using this pattern in production, adapt the routing, authentication, prompts, Memory recall behavior, observability, error handling, security controls, and compliance posture to the specific use case and operating model.
 
+## Index
+
+- [1. Prerequisites](#1-prerequisites)
+- [2. Choose the Escalation Pattern](#2-choose-the-escalation-pattern)
+- [3. Shared Setup](#3-shared-setup)
+  - [3.1 Deploy the Twilio Functions](#31-deploy-the-twilio-functions)
+  - [3.2 Create the LiveKit SIP Trunk](#32-create-the-livekit-sip-trunk)
+  - [3.3 Add the LiveKit Agent Tool](#33-add-the-livekit-agent-tool)
+- [4. Pattern A Setup: Using Studio](#4-pattern-a-setup-using-studio)
+- [5. Pattern B Setup: Using TaskRouter](#5-pattern-b-setup-using-taskrouter)
+- [6. Optional Conversation Memory](#6-optional-conversation-memory)
+- [7. How the Patterns Target the Right Call](#7-how-the-patterns-target-the-right-call)
+- [8. Test End to End](#8-test-end-to-end)
+- [9. Display Task Attributes in Flex](#9-display-task-attributes-in-flex)
+- [10. Local Checks](#10-local-checks)
+
 ## 1. Prerequisites
 
 You need:
