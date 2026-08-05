@@ -18,6 +18,8 @@ The key handoff detail is the parent call SID. The Twilio Function that dials Li
 
 Optionally, the same setup can resolve a Twilio Conversation Memory profile before dialing LiveKit. In that mode, Twilio passes Memory identifiers to LiveKit as SIP headers, and the LiveKit agent gets a `recall_customer_memory` tool it can call on demand after the caller describes the issue. Section 6 covers this as an optional overlay; sections 1 through 5 stay focused on the baseline handoff.
 
+The primary Memory use case is to stop every interaction from starting from scratch. Twilio Conversation Memory turns prior conversations into reusable customer context, so a LiveKit voice agent can recognize returning callers, understand what was discussed before, and retrieve only the relevant observations or summaries needed for the current call. The same pattern can also let a LiveKit voice bot understand context captured on other Twilio channels, such as SMS, WhatsApp, RCS, or chat, as long as those interactions resolve to the same customer profile.
+
 > **Proof of concept.** This blueprint is intended as a working reference implementation, not a production drop-in. Before using this pattern in production, adapt the routing, authentication, prompts, Memory recall behavior, observability, error handling, security controls, and compliance posture to the specific use case and operating model.
 
 ## Index
@@ -442,7 +444,11 @@ await fetch(`${HANDOFF_SERVICE_URL}/escalate`, {
 
 ## 6. Optional Conversation Memory
 
-Use Conversation Memory when you want Twilio to maintain customer context across calls while LiveKit remains the real-time voice agent. This is an optional overlay on Pattern A, Pattern B, or Pattern C; choose the base handoff pattern first, then add Memory.
+Use Conversation Memory when you want Twilio to maintain customer context across calls and channels while LiveKit remains the real-time voice agent. This is an optional overlay on Pattern A, Pattern B, or Pattern C; choose the base handoff pattern first, then add Memory.
+
+The main use case is continuity: the caller should not have to repeat what happened last time. Memory can give the LiveKit agent relevant prior observations, summaries, preferences, or open issues so it can personalize the conversation and create a better escalation summary.
+
+A second use case is cross-channel context. If the customer previously interacted over messaging, WhatsApp, RCS, chat, or another captured Twilio channel, Conversation Orchestrator can group those communications into conversations and link them to a Memory profile. The LiveKit voice agent can then use the Memory recall tool to understand relevant context from those other channels during the voice call.
 
 Before enabling this path, create a Twilio Conversation Memory Store and make sure the store can resolve profiles by phone number. In production, the usual pattern is to link that store to a Conversation Orchestrator configuration so passive call capture can write observations and summaries after conversations complete. You can also write observations, summaries, or traits directly through the Memory API.
 
@@ -453,7 +459,15 @@ Memory adds two separate things:
 
 The lookup is best-effort. If Memory is not configured or the lookup fails, the Memory voice endpoints still dial LiveKit without Memory headers so the caller is not blocked from reaching the agent.
 
-### 6.1 Configure Memory Values
+### 6.1 Memory, Orchestrator, and Conversation Intelligence
+
+In this blueprint, the Memory path assumes Twilio Conversation Orchestrator is configured for capture and profile resolution. Orchestrator is the layer that turns voice and messaging traffic into normalized conversations, links those conversations to a Memory Store, and can also attach Conversation Intelligence configurations.
+
+Conversation Memory and Conversation Intelligence are independent capabilities. Memory stores and recalls customer context. Conversation Intelligence analyzes conversations for real-time or post-conversation signals such as summaries, sentiment, next-best-response, QA, or custom operator outputs. They can be adopted separately, but both use Conversation Orchestrator as the conversation capture and configuration layer in this pattern.
+
+That means enabling the optional Memory path can also create the foundation for Conversation Intelligence. Once the same Conversation Orchestrator configuration is capturing the relevant voice or messaging traffic, you can attach an Intelligence configuration to run real-time or post-call analysis without changing the LiveKit handoff mechanics.
+
+### 6.2 Configure Memory Values
 
 Add the Memory values to `serverless/.env`, then redeploy the Twilio Functions:
 
@@ -480,7 +494,7 @@ https://your-functions-service-1234.twil.io/memory_recall
 https://your-functions-service-1234.twil.io/memory_debug
 ```
 
-### 6.2 Switch the LiveKit Entrypoint
+### 6.3 Switch the LiveKit Entrypoint
 
 The Memory entrypoint is the Function that dials LiveKit. It runs before the caller reaches the LiveKit agent and performs best-effort Memory profile resolution.
 
@@ -498,7 +512,7 @@ If you created the trunk before adding Conversation Memory, update the trunk's `
 
 The initial SIP participant may have `customerPhone` and `memoryStoreId` but no `memoryProfileId`. That is expected when the profile is not resolved before dialing LiveKit. The `/memory_recall` endpoint can resolve the profile on demand from `customerPhone` and `memoryStoreId` when the agent calls the tool.
 
-### 6.3 Verify Memory Lookup
+### 6.4 Verify Memory Lookup
 
 Use the protected `/memory_debug` endpoint when the agent says it cannot find previous context. It checks the same deployed Twilio Function context used by `/voice_memory` and `/memory_recall`.
 
@@ -520,7 +534,7 @@ The useful fields are:
 
 If `profileLookup.profileFound` is `true` but `/memory_recall` returns no useful observations, wait for the voice conversation to become inactive or closed, then retry. Memory extraction and indexing are asynchronous.
 
-### 6.4 Add the Memory Agent Tool
+### 6.5 Add the Memory Agent Tool
 
 For the Python agent, use [examples/livekit_agent_tool_memory.py](examples/livekit_agent_tool_memory.py) as the Memory-enabled model. It includes everything from the baseline handoff example plus:
 
@@ -537,7 +551,7 @@ If the caller asks what happened previously, what happened last time, or asks fo
 
 After changing the agent source, tool definitions, prompt, or `HANDOFF_ESCALATE_PATH`, redeploy or restart the LiveKit agent runtime.
 
-### 6.5 Choose the Memory Escalation Endpoint
+### 6.6 Choose the Memory Escalation Endpoint
 
 The Memory escalation endpoint is the endpoint the LiveKit agent calls when it decides to hand off. Pick it based on the destination pattern:
 
@@ -557,7 +571,7 @@ For Pattern A with Memory, include the Memory identifiers in the Send to Flex at
 }
 ```
 
-### 6.6 Example: Memory-Enabled Pattern B
+### 6.7 Example: Memory-Enabled Pattern B
 
 Use this example when you want to test the direct TaskRouter path with Conversation Memory enabled.
 
